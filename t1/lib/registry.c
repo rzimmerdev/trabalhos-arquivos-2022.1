@@ -1,70 +1,59 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct Registry_t {
-
-    int total_fields;
-    int *field_sizes;
-    int *type_sizes;
-
-    void **fields;
-
-} registry;
+#include "registry.h"
 
 
-void read_variable_field(void *ptr, int type_size, char separator, FILE *stream) {
+void fscan_until(FILE *stream, char *ptr, char separator) {
 
-    // Buffer
-    int field_size = 100;
-    ptr = malloc(type_size * field_size);
+    int buffer = BUFFER_SIZE, i = 0;
+    ptr = malloc(sizeof(char) * buffer);
 
     char current_char;
-    fscanf(fp, )
-    while (fscanf())
-}
-
-
-registry *read_fixed(FILE *fp, int total_fields, int *field_sizes, int *type_sizes) {
-
-    registry *reg = malloc(sizeof(registry));
-    reg->total_fields = total_fields;
-    reg->field_sizes = field_sizes;
-    reg->type_sizes = type_sizes;
-
-    fseek(fp, 0, SEEK_SET);
-
-    reg->fields = malloc(total_fields * sizeof(void *));
-    for (int i = 0; i < total_fields; i++) {
-        reg->fields[i] = malloc(type_sizes[i] * field_sizes[i]);
-        fread(reg->fields[i], type_sizes[i], field_sizes[i], fp);
+    while (fscanf(stream, "%c", &current_char) != EOF && current_char != '\n' && current_char != separator) {
+        if (current_char != '\r') {
+            if (buffer <= i) {
+                buffer += BUFFER_SIZE;
+                ptr = realloc(ptr, sizeof(char) * buffer);
+            }
+            ptr[i++] = current_char;
+        }
     }
 
-    return reg;
+    if (current_char == EOF)
+        ungetc(current_char, stream);
 
+    ptr = realloc(ptr, (i + 1) * sizeof(char));
+    ptr[i] = '\0';
 }
 
 
-registry *read_mixed(FILE *fp, char separator, int total_fields, int *field_sizes, int *type_sizes) {
+registry *create_registry(int total_fields, int *field_sizes, int *type_sizes) {
 
     registry *reg = malloc(sizeof(registry));
     reg->total_fields = total_fields;
     reg->field_sizes = field_sizes;
     reg->type_sizes = type_sizes;
+    reg->fields = malloc(total_fields * sizeof(void *));
+
+    return reg;
+}
+
+
+registry *read_registry(FILE *fp, int total_fields, int *field_sizes, int *type_sizes, char separator) {
+
+    registry *reg = create_registry(total_fields, field_sizes, type_sizes);
 
     fseek(fp, 0, SEEK_SET);
 
-    reg->fields = malloc(total_fields);
-
-    reg->fields = malloc(total_fields * sizeof(void *));
     for (int i = 0; i < total_fields; i++) {
 
         if (field_sizes[i] == -1)
-            read_variable_field(reg->fields[i], type_sizes[i], separator, fp);
+            fscan_until(fp, reg->fields[i], separator);
         else {
-
+            reg->fields[i] = malloc(type_sizes[i] * field_sizes[i]);
+            fread(reg->fields[i], type_sizes[i], field_sizes[i], fp);
         }
-        reg->fields[i] = malloc(type_sizes[i] * field_sizes[i]);
-        fread(reg->fields[i], type_sizes[i], field_sizes[i], fp);
     }
 
     return reg;
