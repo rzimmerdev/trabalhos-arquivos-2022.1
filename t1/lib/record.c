@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "record.h"
 
@@ -59,4 +60,17 @@ record *read_record(FILE *fp, record *template, char separator) {
     }
 
     return reg;
+}
+
+
+void free_record(record *to_free, bool is_template) {
+
+    if (!is_template)
+        for (int i = 0; i < to_free->total_fields; i++) {
+
+            free(to_free->fields[i]);
+        }
+
+    free(to_free->fields);
+    free(to_free);
 }

@@ -13,6 +13,6 @@ typedef struct Table_t {
 
 } table;
 
-table *read_csv(FILE *fp, char separator, record *template);
+table *read_mixed_file(FILE *fp, record *template, char separator);
 
 #endif //DATAFRAME_H

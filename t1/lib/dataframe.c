@@ -5,7 +5,7 @@
 #include "dataframe.h"
 
 
-table *read_csv(FILE *fp, char separator, record *template) {
+table *read_mixed_file(FILE *fp, record *template, char separator) {
 
     table *dataframe = malloc(sizeof(table));
 
@@ -15,7 +15,7 @@ table *read_csv(FILE *fp, char separator, record *template) {
     dataframe->total_registries = BUFFER_SIZE;
     dataframe->registries = malloc(sizeof(record *) * dataframe->total_registries);
 
-    char current_char;
+    /*char current_char;
     int i = 0;
     while (fscanf(fp, "%c", &current_char) != EOF) {
 
@@ -30,7 +30,7 @@ table *read_csv(FILE *fp, char separator, record *template) {
     }
 
     dataframe->total_registries = i;
-    dataframe->registries = realloc(dataframe->registries, sizeof(record *) * dataframe->total_registries);
+    dataframe->registries = realloc(dataframe->registries, sizeof(record *) * dataframe->total_registries);*/
 
     return dataframe;
 }
