@@ -9,8 +9,7 @@ table *read_csv(FILE *fp, char separator, record *template) {
 
     table *dataframe = malloc(sizeof(table));
 
-    record *header = read_record(fp, template->total_fields, template->field_sizes,
-                                     template->type_sizes, ',');
+    record *header = read_record(fp, template, ',');
 
     dataframe->header = header;
     dataframe->total_registries = BUFFER_SIZE;
@@ -27,8 +26,7 @@ table *read_csv(FILE *fp, char separator, record *template) {
             dataframe->registries = realloc(dataframe->registries, sizeof(record *) * dataframe->total_registries);
         }
 
-        dataframe->registries[i++] = read_record(fp, template->total_fields, template->field_sizes,
-                                                   template->type_sizes, separator);
+        dataframe->registries[i++] = read_record(fp, template, separator);
     }
 
     dataframe->total_registries = i;

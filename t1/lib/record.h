@@ -15,8 +15,10 @@ typedef struct Record_t {
 
 } record;
 
+char *fscan_until(FILE *stream, char separator);
+
 record *create_record(int total_fields, int *field_sizes, int *type_sizes);
 
-record *read_record(FILE *stream, int total_fields, int *field_sizes, int *type_sizes, char separator);
+record *read_record(FILE *fp, record *template, char separator);
 
 #endif //RECORD_H
