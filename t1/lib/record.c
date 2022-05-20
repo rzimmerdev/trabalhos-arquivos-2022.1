@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include "record.h"
@@ -60,6 +61,23 @@ record *read_record(FILE *fp, record *template, char separator) {
     }
 
     return reg;
+}
+
+
+void save_record(FILE *dest, record *to_save) {
+
+    for (int i = 0; i < to_save->total_fields; i++) {
+
+        if (to_save->field_sizes[i] == -1) {
+
+            fwrite(to_save->fields[i], strlen((char *) to_save->fields[i]), to_save->type_sizes[i], dest);
+        }
+
+        else {
+
+            fwrite(to_save->fields[i], to_save->field_sizes[i], to_save->type_sizes[i], dest);
+        }
+    }
 }
 
 
