@@ -46,7 +46,8 @@ record *create_record(int total_fields, int *field_sizes, int *type_sizes) {
 
 record *read_record(FILE *fp, record *template, char separator) {
 
-    record *reg = create_record(template->total_fields, template->field_sizes, template->type_sizes);
+    record *reg = create_record(template->total_fields, template->field_sizes,
+                                template->type_sizes);
 
     fseek(fp, 0, SEEK_SET);
 
@@ -55,8 +56,8 @@ record *read_record(FILE *fp, record *template, char separator) {
         if (template->field_sizes[i] == -1)
             reg->fields[i] = fscan_until(fp, separator);
         else {
-            reg->fields[i] = malloc(template->type_sizes[i] * template->field_sizes[i]);
-            fread(reg->fields[i], template->type_sizes[i], template->field_sizes[i], fp);
+            reg->fields[i] = malloc(sizeof(template->type_sizes[i]) * template->field_sizes[i]);
+            fread(reg->fields[i], sizeof(template->type_sizes[i]), template->field_sizes[i], fp);
         }
     }
 
@@ -70,12 +71,10 @@ void save_record(FILE *dest, record *to_save) {
 
         if (to_save->field_sizes[i] == -1) {
 
-            fwrite(to_save->fields[i], strlen((char *) to_save->fields[i]), to_save->type_sizes[i], dest);
-        }
+            fwrite(to_save->fields[i], strlen((char *) to_save->fields[i]), to_save->field_sizes[i], dest);
+        } else {
 
-        else {
-
-            fwrite(to_save->fields[i], to_save->field_sizes[i], to_save->type_sizes[i], dest);
+            fwrite(to_save->fields[i], sizeof(to_save->type_sizes[i]), to_save->field_sizes[i], dest);
         }
     }
 }

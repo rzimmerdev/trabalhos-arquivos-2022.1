@@ -49,11 +49,35 @@ record *create_data_variable() {
     return create_record(field_amt, field_sizes, type_sizes);
 }
 
+record *csv_header_template() {
+
+    int field_sizes[7] = {VAR_SIZE, VAR_SIZE, VAR_SIZE, VAR_SIZE, VAR_SIZE, VAR_SIZE, VAR_SIZE};
+    int type_sizes[7] = {4, 4, 1, 4, 1, 1, 1};
+
+    return create_record(7, field_sizes, type_sizes);
+}
+
+record *csv_data_template() {
+
+    int csv_template[7] = {1, 1, VAR_SIZE, 1, VAR_SIZE, VAR_SIZE, VAR_SIZE};
+    int type_template[7] = {4, 4, 1, 4, 1, 1, 1};
+
+    return create_record(7, csv_template, type_template);
+}
+
+
 void csv_to_record_fixed(FILE *csv, FILE *dest, record *header_template, record *data_template) {
+
     record *header = read_record(csv, header_template, ',');
 
+    record *current_row = NULL;
+
+    do {
+
+    } while (current_row);
 }
 
 void csv_to_record_variable() {
+
 
 }
