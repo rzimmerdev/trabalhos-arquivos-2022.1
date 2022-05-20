@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "registry.h"
+#include "record.h"
 
 
 void fscan_until(FILE *stream, char *ptr, char separator) {
@@ -28,9 +28,9 @@ void fscan_until(FILE *stream, char *ptr, char separator) {
 }
 
 
-registry *create_registry(int total_fields, int *field_sizes, int *type_sizes) {
+record *create_record(int total_fields, int *field_sizes, int *type_sizes) {
 
-    registry *reg = malloc(sizeof(registry));
+    record *reg = malloc(sizeof(record));
     reg->total_fields = total_fields;
     reg->field_sizes = field_sizes;
     reg->type_sizes = type_sizes;
@@ -40,9 +40,9 @@ registry *create_registry(int total_fields, int *field_sizes, int *type_sizes) {
 }
 
 
-registry *read_registry(FILE *fp, int total_fields, int *field_sizes, int *type_sizes, char separator) {
+record *read_record(FILE *fp, int total_fields, int *field_sizes, int *type_sizes, char separator) {
 
-    registry *reg = create_registry(total_fields, field_sizes, type_sizes);
+    record *reg = create_record(total_fields, field_sizes, type_sizes);
 
     fseek(fp, 0, SEEK_SET);
 

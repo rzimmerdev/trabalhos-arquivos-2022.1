@@ -1,12 +1,12 @@
-dependencies = lib/registry.o lib/dataframe.o
+dependencies = lib/record.o lib/dataframe.o
 case = test_cases/3.in
 
 all: src/main.o $(dependencies)
-	gcc -o main src/main.o $(dependencies)
+	gcc -o bin/main src/main.o $(dependencies)
 
 run: src/main.c
 	make all
-	./main
+	./bin/main
 
 valgrind: all
 	make all

@@ -12,16 +12,17 @@
 #include <string.h>
 
 #include "../lib/dataframe.h"
-#include "../lib/registry.h"
+#include "../lib/record.h"
 
 
 int main() {
 
     int total_fields = 7;
-    int field_sizes = {1, 1, -1, 1, -1, -1, -1};
-    int type_sizes[total_fields] = {8, 8, 1, 8, 1, 1, 1};
+    // Tamanho de cada campo no registro:
+    int field_sizes[7] = {1, 1, -1, 1, -1, -1, -1};
+    int type_sizes[7] = {4, 4, 1, 4, 1, 1, 1};
 
-    registry *template = create_registry(total_fields, field_sizes, type_sizes);
+    record *template = create_record(total_fields, field_sizes, type_sizes);
 
     return 0;
 }
