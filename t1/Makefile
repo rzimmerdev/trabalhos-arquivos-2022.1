@@ -1,4 +1,4 @@
-dependencies = lib/record.o lib/dataframe.o
+dependencies = lib/record.o src/record_types.o
 case = test_cases/3.in
 
 all: src/main.o $(dependencies)
