@@ -5,15 +5,29 @@
 #include "../lib/record.h"
 
 
-record *create_header() {
-    // Criando o cabecalho do arquivo de tipo 2 ---
+void write_header(FILE *fp, bool is_fixed) {
 
-    int field_amt = 15;
-    // Tamanho de cada campo no registro:
-    int field_sizes[] = {1, 1, 40, 22, 19, 24, 8, 1, 16, 1, 18, 1, 19, 1, 1};
-    int type_sizes[] = {1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 4};
+    int multiplier = 2;
+    if (is_fixed)
+        multiplier = 1;
 
-    return create_record(field_amt, field_sizes, type_sizes);
+    int top = -1, next_rrn = 0, num_removed = 0;
+
+    fwrite("0", 1, 1, fp);
+    fwrite(&top, 4 * multiplier, 1, fp);
+    fwrite("LISTAGEM DA FROTA DOS VEICULOS NO BRASIL", 1, 40, fp);
+    fwrite("CODIGO IDENTIFICADOR:", 1, 22, fp);
+    fwrite("ANO DE FABRICACAO: ", 1, 19, fp);
+    fwrite("QUANTIDADE DE VEICULOS: ", 1, 24, fp);
+    fwrite("ESTADO: ", 1, 8, fp);
+    fwrite("0", 1, 1, fp);
+    fwrite("NOME DA CIDADE: ", 1, 16, fp);
+    fwrite("1", 1, 1, fp);
+    fwrite("MARCA DO VEICULO: ", 1, 18, fp);
+    fwrite("2", 1, 1, fp);
+    fwrite("MODELO DO VEICULO: ", 1, 19, fp);
+    fwrite(&next_rrn, 4 * multiplier, 1, fp);
+    fwrite(&num_removed, 4, 1, fp);
 }
 
 
@@ -59,12 +73,11 @@ record *create_data_csv() {
 void csv_to_record_fixed(FILE *csv, FILE *dest) {
 
     record *csv_header = create_header_csv();
-    read_record(csv, csv_header, ',');
-    free_record(csv_header);
+    read_record(csv, csv_header, ','); free_record(csv_header);
 
+    write_header(dest, true);
 
-
-    record *csv_data = create_data_csv();
+    /*record *csv_data = create_data_csv();
     record *current_row = NULL;
 
     do {
@@ -74,11 +87,10 @@ void csv_to_record_fixed(FILE *csv, FILE *dest) {
         csv_data = create_data_csv();
         free_record(current_row);
 
-        save_record();
 
     } while (current_row);
 
-    free_record(csv_data);
+    free_record(csv_data);*/
 }
 
 void csv_to_record_variable() {
