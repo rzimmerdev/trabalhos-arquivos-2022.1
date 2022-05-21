@@ -12,10 +12,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include "commands.h"
+#include "../lib/utils.h"
 #include "../lib/record.h"
+#include "commands.h"
 
 // Funcionalidades do trabalho
 typedef enum Command_t {
@@ -27,9 +27,10 @@ typedef enum Command_t {
 
 // Tipo de arquivo
 typedef enum File_type_t {
-    TYPE_1 = 1,
-    TYPE_2 = 2
+    TYPE_1 = true,
+    TYPE_2 = false
 } file_type;
+
 
 int main() {
     int option, file_type;
@@ -48,7 +49,9 @@ int main() {
 
     switch ((command)option) {
         case CREATE_TABLE: {
-            create_table_command();
+            char *csv_filename = scan_word();
+            create_table_command(csv_filename, file_type);
+            free(csv_filename);
             break;
         }
         case SELECT: {

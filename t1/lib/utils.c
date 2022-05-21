@@ -3,6 +3,9 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "utils.h"
+
+
 char *scan_word() {
 
     int size = 0;
@@ -20,6 +23,33 @@ char *scan_word() {
     word[size] = '\0';
     return word;
 }
+
+
+char *fscan_until(FILE *stream, char separator) {
+
+    int buffer = BUFFER_SIZE, i = 0;
+    char *ptr = malloc(sizeof(char) * buffer);
+
+    char current_char;
+    while (fscanf(stream, "%c", &current_char) != EOF && current_char != '\n' && current_char != separator) {
+        if (current_char != '\r') {
+            if (buffer <= i) {
+                buffer += BUFFER_SIZE;
+                ptr = realloc(ptr, sizeof(char) * buffer);
+            }
+            ptr[i++] = current_char;
+        }
+    }
+
+    if (current_char == EOF)
+        ungetc(current_char, stream);
+
+    ptr = realloc(ptr, (i + 1) * sizeof(char));
+    ptr[i] = '\0';
+
+    return ptr;
+}
+
 
 void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o código dessa função. */
 

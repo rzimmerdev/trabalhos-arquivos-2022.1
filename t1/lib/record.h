@@ -4,25 +4,38 @@
 #ifndef RECORD_H
 #define RECORD_H
 
-#define BUFFER_SIZE 32
+typedef struct Data_t {
 
-typedef struct Record_t {
+    char removed;
 
-    int total_fields;
-    int *field_sizes;
-    int *type_sizes;
+    int size;
+    long int big_next;
 
-    void **fields;
+    int next;
 
-} record;
+    int id;
+    int year;
+    int amt;
+    char state[2];
+
+    int city_size;
+    char *city;
+
+    int brand_size;
+    char *brand;
+
+    int model_size;
+    char *model;
+
+} data;
+
 
 char *fscan_until(FILE *stream, char separator);
 
-record *create_record(int total_fields, int *field_sizes, int *type_sizes);
+void free_record(data record);
+void printf_record(data record);
 
-void read_record(FILE *fp, record *placeholder, char separator);
-void save_record(FILE *dest, record *to_save);
-
-void free_record(record *to_free);
+void write_header(FILE *dest, bool is_fixed);
+void write_record(FILE *dest, data record, bool is_fixed);
 
 #endif //RECORD_H

@@ -1,13 +1,13 @@
-dependencies = lib/record.o src/record_types.o lib/utils.o src/commands.o
-case = test_cases/3.in
+dependencies = lib/utils.o lib/record.o src/commands.o
+case = test_cases/1.in
 
 all: src/main.o $(dependencies)
 	gcc -o bin/main src/main.o $(dependencies) -g3
 
 run: src/main.c
 	make all
-	./bin/main
+	./bin/main < $(case)
 
 valgrind: all
 	make all
-	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./bin/main
+	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./bin/main < $(case)
