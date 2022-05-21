@@ -1,29 +1,31 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "commands.h"
-#include "record_types.h"
+#include "../lib/record.h"
 
 void create_table_command() {
     // Ler a entrada
     char *csv_filename = scan_word();
     char *out_filename = scan_word();
 
-    
     FILE *csvfile_ptr = fopen(csv_filename, "r");
     free(csv_filename);
 
     FILE *binfile_ptr = fopen(out_filename, "wb");
-    free(out_filename);
 
     if (!(csvfile_ptr && binfile_ptr)) {
         printf("Falha no processamento do arquivo.\n");
     }
 
-    csv_to_record_fixed(csvfile_ptr, binfile_ptr);
+    csv_to_bin(csvfile_ptr, binfile_ptr, true);
 
     fclose(csvfile_ptr);
     fclose(binfile_ptr);
+
+    binarioNaTela(out_filename);
+    free(out_filename);
 }
 
 void select_command() {
