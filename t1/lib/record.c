@@ -40,28 +40,30 @@ record *create_record(int total_fields, int *field_sizes, int *type_sizes) {
     reg->type_sizes = type_sizes;
     reg->fields = malloc(total_fields * sizeof(void *));
 
+    for (int i = 0; i < total_fields; i++) {
+        if (reg->field_sizes[i] < 0)
+            continue;
+
+        reg->fields[i] = malloc(reg->type_sizes[i] * reg->field_sizes[i]);
+    }
+
     return reg;
 }
 
 
-record *read_record(FILE *fp, record *template, char separator) {
+void read_record(FILE *fp, record *placeholder, char separator) {
 
-    record *reg = create_record(template->total_fields, template->field_sizes,
-                                template->type_sizes);
+    if (feof(fp))
+        return;
 
-    fseek(fp, 0, SEEK_SET);
+    for (int i = 0; i < placeholder->total_fields; i++) {
 
-    for (int i = 0; i < template->total_fields; i++) {
-
-        if (template->field_sizes[i] == -1)
-            reg->fields[i] = fscan_until(fp, separator);
+        if (placeholder->field_sizes[i] == -1)
+            placeholder->fields[i] = fscan_until(fp, separator);
         else {
-            reg->fields[i] = malloc(sizeof(template->type_sizes[i]) * template->field_sizes[i]);
-            fread(reg->fields[i], sizeof(template->type_sizes[i]), template->field_sizes[i], fp);
+            fread(placeholder->fields[i], sizeof(placeholder->type_sizes[i]), placeholder->field_sizes[i], fp);
         }
     }
-
-    return reg;
 }
 
 
@@ -80,13 +82,11 @@ void save_record(FILE *dest, record *to_save) {
 }
 
 
-void free_record(record *to_free, bool is_template) {
+void free_record(record *to_free) {
+    for (int i = 0; i < to_free->total_fields; i++) {
 
-    if (!is_template)
-        for (int i = 0; i < to_free->total_fields; i++) {
-
-            free(to_free->fields[i]);
-        }
+        free(to_free->fields[i]);
+    }
 
     free(to_free->fields);
     free(to_free);
