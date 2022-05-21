@@ -1,4 +1,4 @@
-dependencies = lib/record.o src/record_types.o lib/utils.h
+dependencies = lib/record.o src/record_types.o lib/utils.o src/commands.o
 case = test_cases/3.in
 
 all: src/main.o $(dependencies)
