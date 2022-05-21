@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "commands.h"
 #include "../lib/record.h"
-#include "../lib/utils.h"
 
 // Funcionalidades do trabalho
 typedef enum Command_t {
@@ -25,6 +25,7 @@ typedef enum Command_t {
     SELECT_ID = 4
 } command;
 
+// Tipo de arquivo
 typedef enum File_type_t {
     TYPE_1 = 1,
     TYPE_2 = 2
@@ -47,33 +48,19 @@ int main() {
 
     switch ((command)option) {
         case CREATE_TABLE: {
-            char *csv_filename = scan_word();
-            char *out_filename = scan_word();
-
-            free(csv_filename);
-            free(out_filename);
+            create_table_command();
             break;
         }
         case SELECT: {
-            char *bin_filename = scan_word();
-
-            free(bin_filename);
+            select_command();
             break;
         }
         case SELECT_WHERE: {
-            char *bin_filename = scan_word();
-            int field_amt;
-            scanf("%d", &field_amt);
-
-            free(bin_filename);
+            select_where_command();
             break;
         }
         case SELECT_ID: {
-            char *bin_filename = scan_word();
-            int RRN;
-            scanf("%d", &RRN);
-
-            free(bin_filename);
+            select_id_command();
             break;
         }
     }
