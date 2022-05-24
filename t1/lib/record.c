@@ -108,12 +108,18 @@ void write_record(FILE *stream, data record, bool is_fixed) {
 }
 
 
-data scan_record(FILE *stream, bool is_fixed) {
+data fscanf_record(FILE *stream, bool is_fixed) {
 
     data record = {};
 
-    return record;
+    fscanf(stream, "%c", &record.removed);
 
+    if (record.removed)
+        return record;
+
+    fseek(stream, 96, SEEK_CUR);
+
+    return record;
 }
 
 
@@ -127,13 +133,16 @@ int print_table(FILE *stream, data *record, bool is_fixed) {
     fseek(stream, is_fixed ? 181 : 189, SEEK_SET);
 
     while (!feof(stream)) {
-        if ((is_eof = getc(stream)) == EOF)
-            return;
-        ungetc(is_eof, csv);
+        // if ((is_eof = getc(stream)) == EOF)
+        // return;
+        // ungetc(is_eof, csv);
 
-        data scanned = scan_record(stream, is_fixed)
+        // data scanned = scan_record(stream, is_fixed)
 
-        printf_record(scanned);
+        // printf_record(scanned);
 
-        free_record(scanned);
+        // free_record(scanned);
+        break;
+    }
+    return 1;
 }
