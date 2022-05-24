@@ -74,9 +74,7 @@ void csv_to_bin(FILE *csv, FILE *dest, bool is_fixed) {
     int last_rrn = 0;
     long int next_byteoffset = 0;
 
-    while (!feof(csv)) {
-        if ((is_eof = getc(csv)) == EOF)
-            return;
+    while ((is_eof = getc(csv)) != EOF) {
         ungetc(is_eof, csv);
 
         data record = scan_record_csv(csv, is_fixed, &last_rrn, &next_byteoffset);

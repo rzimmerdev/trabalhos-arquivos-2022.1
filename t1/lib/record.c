@@ -132,11 +132,10 @@ int print_table(FILE *stream, data *record, bool is_fixed) {
     }
     fseek(stream, is_fixed ? 181 : 189, SEEK_SET);
 
-    while (!feof(stream)) {
-        // if ((is_eof = getc(stream)) == EOF)
-        // return;
-        // ungetc(is_eof, csv);
+    char is_eof;
+    while ((is_eof = getc(stream)) != EOF) {
 
+        // ungetc(is_eof, stream);
         // data scanned = scan_record(stream, is_fixed)
 
         // printf_record(scanned);

@@ -50,7 +50,11 @@ int main() {
     switch ((command)option) {
         case CREATE_TABLE: {
             char *csv_filename = scan_word();
-            create_table_command(csv_filename, file_type);
+            char *out_filename = scan_word();
+
+            create_table_command(csv_filename, out_filename, file_type);
+            binarioNaTela(out_filename);
+            free(out_filename);
             free(csv_filename);
             break;
         }

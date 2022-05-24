@@ -6,9 +6,8 @@
 #include "csv_utils.h"
 
 
-void create_table_command(char *csv_filename, bool filetype) {
+void create_table_command(char *csv_filename, char *out_filename, bool filetype) {
     // Ler a entrada
-    char *out_filename = scan_word();
 
     FILE *csvfile_ptr = fopen(csv_filename, "r");
     FILE *binfile_ptr = fopen(out_filename, "wb");
@@ -21,9 +20,6 @@ void create_table_command(char *csv_filename, bool filetype) {
 
     fclose(csvfile_ptr);
     fclose(binfile_ptr);
-
-    binarioNaTela(out_filename);
-    free(out_filename);
 }
 
 void select_command() {

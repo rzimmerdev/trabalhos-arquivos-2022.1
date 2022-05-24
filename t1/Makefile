@@ -1,4 +1,4 @@
-dependencies = lib/utils.o lib/record.o src/commands.o
+dependencies = lib/utils.o lib/record.o src/csv_utils.o src/commands.o
 case = test_cases/1.in
 
 all: src/main.o $(dependencies)
