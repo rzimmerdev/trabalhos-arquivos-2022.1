@@ -51,6 +51,27 @@ char *fscan_until(FILE *stream, char separator) {
 }
 
 
+char *scan_word_quoted() {
+
+    int size = 0;
+    char *word = malloc(size * sizeof(char));
+    char current_char;
+
+    while ((current_char = getchar()) != '"');
+
+    while (scanf("%c", &current_char) == 1 && current_char != '"') {
+        if (current_char != '\r') {
+            word = realloc(word, ++size * sizeof(char));
+            word[size - 1] = current_char;
+        }
+    }
+
+    word = realloc(word, (size + 1) * sizeof(char));
+    word[size] = '\0';
+    return word;
+}
+
+
 void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o código dessa função. */
 
     /* Use essa função para comparação no run.codes. Lembre-se de ter fechado (fclose) o arquivo anteriormente.
@@ -77,24 +98,4 @@ void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o 
     printf("%lf\n", (cs / (double) 100));
     free(mb);
     fclose(fs);
-}
-
-char *scan_word_quoted() {
-
-    int size = 0;
-    char *word = malloc(size * sizeof(char));
-    char current_char;
-
-    while ((current_char = getchar()) != '"');
-
-    while (scanf("%c", &current_char) == 1 && current_char != '"') {
-        if (current_char != '\r') {
-            word = realloc(word, ++size * sizeof(char));
-            word[size - 1] = current_char;
-        }
-    }
-
-    word = realloc(word, (size + 1) * sizeof(char));
-    word[size] = '\0';
-    return word;
 }

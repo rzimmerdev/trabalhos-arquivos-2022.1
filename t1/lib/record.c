@@ -5,27 +5,6 @@
 
 #include "record.h"
 
-// Status do arquivo
-#define BAD_STATUS "0"
-
-// Informacao para os campos do reg.
-#define INITIAL_VALUE -1
-#define GARBAGE "$"
-#define GARBAGE '$'
-#define CITY_CODE '0'
-#define BRAND_CODE '1'
-#define MODEL_CODE '2'
-
-// Informacao sobre os registros
-#define FIXED_REG_SIZE 97
-
-// Status de retorno
-#define ERROR -1
-#define SUCCESS 1
-
-// Informacao sobre o campo 'removido'
-#define IS_REMOVED '1'
-
 void free_record(data record) {
     if (record.city)
         free(record.city);
@@ -36,57 +15,32 @@ void free_record(data record) {
 }
 
 
-void printf_record(data record) {
-
-    if (record.brand)
-        printf("MARCA DO VEICULO: %s\n", record.brand);
-    else
-        printf("MARCA DO VEICULO: NAO PREENCHIDO\n");
-    if (record.model)
-        printf("MARCA DO VEICULO: %s\n", record.model);
-    else
-        printf("MARCA DO VEICULO: NAO PREENCHIDO\n");
-    printf("ANO DE FABRICACAO: %d\n", record.year);
-    if (record.city)
-        printf("MARCA DO VEICULO: %s\n", record.city);
-    else
-        printf("MARCA DO VEICULO: NAO PREENCHIDO\n");
-    printf("QUANTIDADE DE VEICULOS: %d\n", record.amt);
-    printf("\n");
+void get_file_size(FILE *stream, void *size, bool is_fixed) {
+    if (is_fixed) {
+        fseek(stream, NEXT_RRN_b, SEEK_SET);
+        int next_rrn;
+        fread(&next_rrn, sizeof(int), 1, stream);
+        memcpy(size, &next_rrn, sizeof(int));
+    } else {
+        fseek(stream, NEXT_BYTEOFFSET_b, SEEK_SET);
+        long int next_byteoffset;
+        fread(&next_byteoffset, sizeof(long int), 1, stream);
+        memcpy(size, &next_byteoffset, sizeof(long int));
+    }
 }
 
 
-void write_header(FILE *stream, bool is_fixed) {
-    // Ao abrir para escrita, status deve ser 0 (arq. inconsistente/desatualizado)
-    fwrite(BAD_STATUS, 1, 1, stream);
-
-    if (is_fixed) {
-        int top = INITIAL_VALUE; // Nao ha registros removidos ainda
-        fwrite(&top, 4, 1, stream);
-    } else {
-        long int top = INITIAL_VALUE;
-        fwrite(&top, 8, 1, stream);
-    }
-
-    char *header_description[11] = {"LISTAGEM DA FROTA DOS VEICULOS NO BRASIL",
-                                    "CODIGO IDENTIFICADOR: ", "ANO DE FABRICACAO: ", "QUANTIDADE DE VEICULOS: ",
-                                    "ESTADO: ", "0", "NOME DA CIDADE: ", "1", "MARCA DO VEICULO: ",
-                                    "2", "MODELO DO VEICULO: "};
-    for (int i = 0; i < 11; i++) {
-        fwrite(header_description[i], 1, strlen(header_description[i]), stream);
-    }
-
-    if (is_fixed) {
-        int next_rrn = 0;
-        fwrite(&next_rrn, 4, 1, stream);
-    } else {
-        long int next_byte_offset = 0;
-        fwrite(&next_byte_offset, 8, 1, stream);
-    }
-
-    // Quantidade de registros logicamente marcados como removidos
-    int removed_records = 0;
-    fwrite(&removed_records, 4, 1, stream);
+void printf_record(data record) {
+    char empty[] = "NAO PREENCHIDO";
+    printf("MARCA DO VEICULO: %s\n", record.brand ? record.brand : empty);
+    printf("MODELO DO VEICULO: %s\n", record.model ? record.model : empty);
+    if (record.year != -1)
+        printf("ANO DE FABRICACAO: %d\n", record.year);
+    else
+        printf("ANO DE FABRICACAO: %s\n", empty);
+    printf("NOME DA CIDADE: %s\n", record.city ? record.city : empty);
+    printf("QUANTIDADE DE VEICULOS: %d\n", record.total);
+    printf("\n");
 }
 
 
@@ -103,7 +57,7 @@ void write_record(FILE *stream, data record, bool is_fixed) {
     }
     fwrite(&record.id, 4, 1, stream);
     fwrite(&record.year, 4, 1, stream);
-    fwrite(&record.amt, 4, 1, stream);
+    fwrite(&record.total, 4, 1, stream);
 
     if (strlen(record.state)) {
         fwrite(record.state, 1, 2, stream);
@@ -137,48 +91,58 @@ void write_record(FILE *stream, data record, bool is_fixed) {
         return;
 
     // Precisa completar o reg. de tam. fixo com lixo
-    for (int i = 19 + city_space + brand_space + model_space; i < FIXED_REG_SIZE; i++) {
-        fwrite(GARBAGE, 1, 1, stream);
+    for (int i = FIXED_MINIMUM + city_space + brand_space + model_space; i < FIXED_REG_SIZE; i++) {
+        char garbage[1] = {GARBAGE};
+        fwrite(garbage, 1, 1, stream);
     }
 }
 
 data fread_record(FILE *stream, bool is_fixed) {
 
-    data record = {.city_size = 0,
-                   .brand_size = 0,
-            .model_size = 0,
-    };
+    data record = {.city_size = 0, .brand_size = 0, .model_size = 0};
 
     fread(&record.removed, 1, 1, stream);
 
     if (record.removed == IS_REMOVED) {
-        fseek(stream, 96, SEEK_CUR);
+        if (is_fixed) {
+            fseek(stream, 96, SEEK_CUR);
+        }
+        else {
+            fread(&record.size, 4, 1, stream);
+            fseek(stream, record.size, SEEK_CUR);
+        }
         return record;
     }
 
     if (is_fixed)
         fread(&record.next, 4, 1, stream);
     else {
-        fread(&record.next, 4, 1, stream);
+        fread(&record.size, 4, 1, stream);
+        fread(&record.big_next, 8, 1, stream);
     }
 
     fread(&record.id, 4, 1, stream);
     fread(&record.year, 4, 1, stream);
-    fread(&record.amt, 4, 1, stream);
+    fread(&record.total, 4, 1, stream);
 
     fread(record.state, 1, 2, stream);
 
     if (record.state[0] == GARBAGE)
         record.state[0] = '\0'; record.state[1] = '\0';
 
-    int bytes_read = 19;
+    int bytes_read = is_fixed ? FIXED_MINIMUM : VARIABLE_MINIMUM;
 
     for (int i = 0; i < 3; i++) {
-        char is_empty; fread(&is_empty, 1, 1, stream);
+        if (is_fixed) {
+            char is_empty; fread(&is_empty, 1, 1, stream);
 
-        ungetc(is_empty, stream);
-        if (is_empty == GARBAGE)
+            ungetc(is_empty, stream);
+            if (is_empty == GARBAGE)
+                break;
+        }
+        else if (bytes_read >= record.size) {
             break;
+        }
 
         int current_size;
         char current_code;
@@ -208,40 +172,9 @@ data fread_record(FILE *stream, bool is_fixed) {
 
         bytes_read += 5 + current_size;
     }
-    fseek(stream, FIXED_REG_SIZE - bytes_read, SEEK_CUR);
+
+    if (is_fixed)
+        fseek(stream, FIXED_REG_SIZE - bytes_read, SEEK_CUR);
 
     return record;
-}
-
-
-int select_table(FILE *stream, bool is_fixed) {
-
-    if (getc(stream) == '0') {
-        printf("Falha no processamento do arquivo.");
-        return ERROR;
-    }
-
-    fseek(stream, is_fixed ? 174 : 189, SEEK_SET);
-
-    int next_rrn; long int next_byteoffset, current_byteoffset = 0;
-    if (is_fixed)
-        fread(&next_rrn, 4, 1, stream);
-    else
-        fread(&next_byteoffset, 8, 1, stream);
-
-    fseek(stream, is_fixed ? 182 : 189, SEEK_SET);
-
-    while ((is_fixed && (next_rrn > 0)) || (!is_fixed && current_byteoffset < next_byteoffset)) {
-
-        data scanned = fread_record(stream, is_fixed);
-
-        if (scanned.removed == IS_REMOVED) {
-            printf("Registro inexistente.\n");
-        }
-
-        next_rrn--; current_byteoffset += FIXED_REG_SIZE;
-        printf_record(scanned);
-        free_record(scanned);
-    }
-    return SUCCESS;
 }

@@ -38,13 +38,13 @@ data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byte
     record.city = fscan_until(fp, ',');
     record.city_size = strlen(record.city);
 
-    char *amt = fscan_until(fp, ',');
-    if (strlen(amt)) {
-        record.amt = atoi(amt);
+    char *total = fscan_until(fp, ',');
+    if (strlen(total)) {
+        record.total = atoi(total);
     } else {
-        record.amt = INITIAL_VALUE;
+        record.total = INITIAL_VALUE;
     }
-    free(amt);
+    free(total);
 
     char *state = fscan_until(fp, ',');
     if (strlen(state)) {
@@ -69,7 +69,7 @@ data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byte
         if (record.city_size) record.size += 5 + record.city_size;
         if (record.brand_size) record.size += 5 + record.brand_size;
         if (record.model_size) record.size += 5 + record.model_size;
-        *next_byteoffset += record.size;
+        *next_byteoffset += record.size + 5;
     } else
         *last_rrn += 1;
 
@@ -89,7 +89,7 @@ void csv_to_bin(FILE *csv, FILE *dest, bool is_fixed) {
 
     // Para encontrar prox. byte disponivel para novo reg.
     int last_rrn = 0;
-    long int next_byteoffset = 0;
+    long int next_byteoffset = VARIABLE_HEADER;
 
     // Escrevendo todos os reg. no binario
     while ((is_eof = getc(csv)) != EOF) {

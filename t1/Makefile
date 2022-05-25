@@ -1,12 +1,11 @@
-dependencies = lib/utils.o lib/record.o src/csv_utils.o src/commands.o
-case = test_cases/10.in
+dependencies = lib/utils.o lib/record.o lib/table.o src/csv_utils.o src/commands.o
+case = test_cases/2.in
 
 all: src/main.o $(dependencies)
 	gcc -o bin/main src/main.o $(dependencies) -g3
 
 run: src/main.c
-	make all
-	./bin/main < $(case)
+	./bin/main
 
 valgrind: all
 	make all

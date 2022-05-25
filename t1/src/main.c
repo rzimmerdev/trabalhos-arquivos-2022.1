@@ -14,7 +14,6 @@
 #include <stdlib.h>
 
 #include "../lib/utils.h"
-#include "../lib/record.h"
 #include "commands.h"
 
 // Status de retorno
@@ -32,10 +31,9 @@ typedef enum Command_t {
 
 // Tipo de arquivo
 typedef enum File_type_t {
-    TYPE_1 = true,
-    TYPE_2 = false
+    FIXED = 1,
+    VARIABLE = 0
 } filetypes;
-
 
 int main() {
     int option, filetype;
@@ -43,11 +41,11 @@ int main() {
     
     char *file_type_str = scan_word();
     if (file_type_str[4] == '1') {
-        filetype = TYPE_1;
+        filetype = FIXED;
     }
     
     else {
-        filetype = TYPE_2;
+        filetype = VARIABLE;
     }
 
     free(file_type_str);
@@ -72,10 +70,8 @@ int main() {
             char *bin_filename = scan_word();
 
             int success = select_command(bin_filename, filetype);
-
-            if (success == ERROR)
+            if (!success)
                 printf("Falha no processamento do arquivo.");
-
 
             free(bin_filename);
 
@@ -84,10 +80,9 @@ int main() {
         case SELECT_WHERE: {
 
             char *bin_filename = scan_word();
+            int total_parameters; scanf("%d ", &total_parameters);
 
-
-            select_where_command();
-
+            select_where_command(bin_filename, total_parameters, filetype);
             free(bin_filename);
             break;
         }
