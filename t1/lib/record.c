@@ -73,9 +73,6 @@ void write_record(FILE *stream, data record, bool is_fixed) {
     if (strlen(record.state)) {
         fwrite(record.state, 1, 2, stream);
     }
-    else {
-        fwrite("$$", 1, 2, stream);
-    }
 
     int city_space = 0, brand_space = 0, model_space = 0;
     if (strlen(record.city)) {
@@ -108,40 +105,105 @@ void write_record(FILE *stream, data record, bool is_fixed) {
 }
 
 
-data fscanf_record(FILE *stream, bool is_fixed) {
+data fread_record(FILE *stream, bool is_fixed) {
 
-    data record = {};
+    data record = {.city_size = 0, .city = "NAO PREENCHIDO",
+                   .brand_size = 0, .brand = "NAO PREENCHIDO",
+            .model_size = 0, .model = "NAO PREENCHIDO"
+    };
 
-    fscanf(stream, "%c", &record.removed);
+    fread(&record.removed, 1, 1, stream);
 
-    if (record.removed)
+    if (record.removed == '1') {
+        fseek(stream, 96, SEEK_CUR);
         return record;
+    }
+    if (is_fixed)
+        fread(&record.next, 4, 1, stream);
+    else {
+        fread(&record.next, 4, 1, stream);
+    }
 
-    fseek(stream, 96, SEEK_CUR);
+    fread(&record.id, 4, 1, stream);
+    fread(&record.year, 4, 1, stream);
+    fread(&record.amt, 4, 1, stream);
+
+    fread(record.state, 1, 2, stream);
+
+    if (record.state[0] == '$')
+        record.state[0] = '\0'; record.state[1] = '\0';
+
+    int bytes_read = 19;
+
+    for (int i = 0; i < 3; i++) {
+        char is_empty; fread(&is_empty, 1, 1, stream);
+
+        ungetc(is_empty, stream);
+        if (is_empty == '$')
+            break;
+
+        int current_size;
+        char current_code;
+        fread(&current_size, 4, 1, stream);
+        fread(&current_code, 1, 1, stream);
+
+        switch (current_code) {
+            case '0': {
+                record.city_size = current_size;
+                record.city = malloc(sizeof(char) * current_size + 1);
+                fread(record.city, 1, current_size, stream); record.city[current_size] = '\0';
+                break;
+            }
+            case '1': {
+                record.brand_size = current_size;
+                record.brand = malloc(sizeof(char) * current_size + 1);
+                fread(record.brand, 1, current_size, stream); record.brand[current_size] = '\0';
+                break;
+            }
+            case '2': {
+                record.model_size = current_size;
+                record.model = malloc(sizeof(char) * current_size + 1);
+                fread(record.model, 1, current_size, stream); record.model[current_size] = '\0';
+                break;
+            }
+        }
+
+        bytes_read += 5 + current_size;
+    }
+    fseek(stream, 97 - bytes_read, SEEK_CUR);
 
     return record;
 }
 
 
-int print_table(FILE *stream, data *record, bool is_fixed) {
+int select_table(FILE *stream, bool is_fixed) {
 
-    char status;
-    if ((status = getc(stream)) == '0') {
+    if (getc(stream) == '0') {
         printf("Falha no processamento do arquivo.");
         return -1;
     }
-    fseek(stream, is_fixed ? 181 : 189, SEEK_SET);
 
-    char is_eof;
-    while ((is_eof = getc(stream)) != EOF) {
+    fseek(stream, is_fixed ? 174 : 189, SEEK_SET);
 
-        // ungetc(is_eof, stream);
-        // data scanned = scan_record(stream, is_fixed)
+    int next_rrn; long int next_byteoffset, current_byteoffset = 0;
+    if (is_fixed)
+        fread(&next_rrn, 4, 1, stream);
+    else
+        fread(&next_byteoffset, 8, 1, stream);
 
-        // printf_record(scanned);
+    fseek(stream, is_fixed ? 182 : 189, SEEK_SET);
 
-        // free_record(scanned);
-        break;
+    while ((is_fixed && (next_rrn > 0)) || (!is_fixed && current_byteoffset < next_byteoffset)) {
+
+        data scanned = fread_record(stream, is_fixed);
+
+        if (scanned.removed == '1') {
+            printf("Registro inexistente.\n");
+        }
+
+        next_rrn--; current_byteoffset += 97;
+        printf_record(scanned);
+        free_record(scanned);
     }
     return 1;
 }

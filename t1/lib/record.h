@@ -38,4 +38,7 @@ void printf_record(data record);
 void write_header(FILE *dest, bool is_fixed);
 void write_record(FILE *dest, data record, bool is_fixed);
 
+data fread_record(FILE *stream, bool is_fixed);
+int select_table(FILE *stream, bool is_fixed);
+
 #endif //RECORD_H

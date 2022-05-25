@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 #include "../lib/utils.h"
+#include "../lib/record.h"
 #include "csv_utils.h"
 
 
@@ -22,7 +23,7 @@ void create_table_command(char *csv_filename, char *out_filename, bool filetype)
     fclose(binfile_ptr);
 }
 
-void select_command() {
+void select_command(bool filetype) {
     // Ler a entrada
     char *bin_filename = scan_word();
 
@@ -32,11 +33,13 @@ void select_command() {
     if (!file_ptr) {
         printf("macaco");
     }
-    
+
+    select_table(file_ptr, filetype);
 
     if (bin_filename) {
         free(bin_filename);
     }
+    fclose(file_ptr);
 }
 
 void select_where_command() {
