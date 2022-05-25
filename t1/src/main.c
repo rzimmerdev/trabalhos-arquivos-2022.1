@@ -17,6 +17,11 @@
 #include "../lib/record.h"
 #include "commands.h"
 
+// Status de retorno
+#define ERROR -1
+#define SUCCESS 1
+#define MISSING_REGISTER 0
+
 // Funcionalidades do trabalho
 typedef enum Command_t {
     CREATE_TABLE = 1,
@@ -68,7 +73,7 @@ int main() {
 
             int success = select_command(bin_filename, filetype);
 
-            if (success == -1)
+            if (success == ERROR)
                 printf("Falha no processamento do arquivo.");
 
 
@@ -93,9 +98,9 @@ int main() {
 
             int success = select_id_command(bin_filename, rrn);
 
-            if (success == -1)
+            if (success == ERROR)
                 printf("Falha no processamento do arquivo.");
-            else if (success == 0)
+            else if (success == MISSING_REGISTER)
                 printf("Registro inexistente.\n");
 
             free(bin_filename);

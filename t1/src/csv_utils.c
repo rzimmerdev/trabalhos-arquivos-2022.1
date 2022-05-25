@@ -5,17 +5,24 @@
 
 #include "../lib/record.h"
 
+// Informacao sobre o campo 'removido'
+#define IS_REMOVED '1'
+#define IS_NOT_REMOVED '0'
+
+// Informacao para os campos do reg.
+#define INITIAL_VALUE -1
+#define GARBAGE '$'
 
 data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byteoffset) {
     // Criando um registro
     data record = {};
 
-    record.removed = '0'; // Reg. nao esta removido inicialmente
+    record.removed = IS_NOT_REMOVED; // Reg. nao esta removido inicialmente
 
     if (is_fixed)
-        record.next = -1; // Nao ha reg. removidos ainda
+        record.next = INITIAL_VALUE; // Nao ha reg. removidos ainda
     else {
-        record.big_next = -1;
+        record.big_next = INITIAL_VALUE;
     }
     fscanf(fp, "%d,", &record.id);
 
@@ -24,7 +31,7 @@ data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byte
     if (strlen(year)) {
         record.year = atoi(year);
     } else {
-        record.year = -1; // Se nao existe essa info
+        record.year = INITIAL_VALUE; // Se nao existe essa info
     }
     free(year);
 
@@ -35,7 +42,7 @@ data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byte
     if (strlen(amt)) {
         record.amt = atoi(amt);
     } else {
-        record.amt = -1;
+        record.amt = INITIAL_VALUE;
     }
     free(amt);
 
@@ -43,7 +50,7 @@ data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byte
     if (strlen(state)) {
         record.state[0] = state[0]; record.state[1] = state[1];
     } else {
-        record.state[0] = '$'; record.state[1] = '$';
+        record.state[0] = GARBAGE; record.state[1] = GARBAGE;
     }
     free(state);
 
