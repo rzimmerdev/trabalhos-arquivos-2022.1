@@ -1,12 +1,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <string.h>
+
 
 #include "../lib/utils.h"
 #include "../lib/record.h"
 #include "csv_utils.h"
-#include "../lib/record.h"
+
+
+typedef struct { char *key; int val; } table_dict;
+
+static table_dict column_lookup[] = {
+        { "id", 0 }, { "ano", 1 }, { "qtt", 2 }, { "sigla", 3 },
+        { "cidade", 4}, { "marca", 5}, { "modelo", 6}
+};
 
 
 int create_table_command(char *csv_filename, char *out_filename, bool filetype) {
@@ -32,8 +39,7 @@ int create_table_command(char *csv_filename, char *out_filename, bool filetype) 
 int select_command(char *bin_filename, bool filetype) {
 
     // Ler a entrada
-    FILE *file_ptr = NULL;
-    file_ptr = fopen(bin_filename, "rb");
+    FILE *file_ptr = fopen(bin_filename, "rb");
 
     if (!file_ptr) {
         return -1;
@@ -46,24 +52,41 @@ int select_command(char *bin_filename, bool filetype) {
     return 1;
 }
 
-void select_where_command() {
+int select_where_command(char *bin_filename, bool is_fixed) {
+
     // Ler a entrada
-    char *bin_filename = scan_word();
-    int field_amt;
-    scanf("%d", &field_amt);
-    char **search_fields = (char **) malloc(field_amt * sizeof(char *));
-    
-    for (int i = 0; i < field_amt; i++) {
-        search_fields[i] = scan_word();
-        printf("%s\n", search_fields[i]);
+    int columns_amt; scanf("%d", &columns_amt);
+
+    FILE *file_ptr = fopen(bin_filename, "rb");
+
+    int next_rrn; long int next_byteoffset;
+
+    if (is_fixed) {
+        fseek(file_ptr, 174, SEEK_SET);
+        fread(&next_rrn, 4, 1, file_ptr);
+    }
+    else {
+        fseek(file_ptr, 178, SEEK_SET);
+        fread(&next_byteoffset, 8, 1, file_ptr);
     }
 
-    for (int i = 0; i < field_amt; i++) {
-        free(search_fields[i]);
+    for (; field_amt > 0; field_amt--) {
+
+        char *key = scan_word();
+        char *value = scan_word_quoted();
+
+        while ((is_fixed && (--next_rrn > 0)) || (!is_fixed && ftell(file_ptr) < next_byteoffset)) {
+            data record = fread_record(file_ptr, is_fixed);
+            printf_record(record);
+            free_record(record);
+        }
+
+        free(key); free(value);
     }
 
-    free(search_fields);
     free(bin_filename);
+
+    return 1;
 }
 
 int select_id_command(char *bin_filename, int rrn) {
@@ -72,15 +95,15 @@ int select_id_command(char *bin_filename, int rrn) {
     // Esta func. so esta disponivel para arquivos de reg. fixos
 
     // Acessar o arquivo para recuperar dados
-    FILE *bin_file = fopen(bin_filename, "rb");
+    FILE *file_ptr = fopen(bin_filename, "rb");
 
-    if (!bin_file) {
+    if (!file_ptr) {
         return -1;
     }
 
     // Verificar se o RRN eh valido ---
-    fseek(bin_file, 174, SEEK_SET);
-    int next_rrn; fread(&next_rrn, 4, 1, bin_file);
+    fseek(file_ptr, 174, SEEK_SET);
+    int next_rrn; fread(&next_rrn, 4, 1, file_ptr);
 
     int byte_offset = rrn * 97 + 182; // O arquivo fixo tem 97 bytes de tamanho
 
@@ -88,10 +111,10 @@ int select_id_command(char *bin_filename, int rrn) {
         return -1;
     }
 
-    fseek(bin_file, byte_offset, SEEK_SET);
+    fseek(file_ptr, byte_offset, SEEK_SET);
 
-    data record = fread_record(bin_file, false);
-    fclose(bin_file);
+    data record = fread_record(file_ptr, false);
+    fclose(file_ptr);
 
     if (record.removed == '0') {
         printf_record(record);

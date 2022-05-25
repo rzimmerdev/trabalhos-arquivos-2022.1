@@ -77,7 +77,13 @@ int main() {
             break;
         }
         case SELECT_WHERE: {
+
+            char *bin_filename = scan_word();
+
+
             select_where_command();
+
+            free(bin_filename);
             break;
         }
         case SELECT_ID: {

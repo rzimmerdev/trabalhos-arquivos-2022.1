@@ -201,17 +201,17 @@ int select_table(FILE *stream, bool is_fixed) {
         return -1;
     }
 
-    fseek(stream, is_fixed ? 174 : 189, SEEK_SET);
+    fseek(stream, is_fixed ? 174 : 178, SEEK_SET);
 
-    int next_rrn; long int next_byteoffset, current_byteoffset = 0;
+    int next_rrn; long int next_byteoffset;
     if (is_fixed)
         fread(&next_rrn, 4, 1, stream);
     else
         fread(&next_byteoffset, 8, 1, stream);
 
-    fseek(stream, is_fixed ? 182 : 189, SEEK_SET);
+    fseek(stream, is_fixed ? 182 : 190, SEEK_SET);
 
-    while ((is_fixed && (next_rrn > 0)) || (!is_fixed && current_byteoffset < next_byteoffset)) {
+    while ((is_fixed && (next_rrn-- > 0)) || (!is_fixed && (ftell(stream) < next_byteoffset))) {
 
         data scanned = fread_record(stream, is_fixed);
 
@@ -219,9 +219,9 @@ int select_table(FILE *stream, bool is_fixed) {
             printf("Registro inexistente.\n");
         }
 
-        next_rrn--; current_byteoffset += 97;
         printf_record(scanned);
         free_record(scanned);
+
     }
     return 1;
 }
