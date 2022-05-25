@@ -10,13 +10,13 @@
 
 
 int create_table_command(char *csv_filename, char *out_filename, bool filetype) {
-    // Ler a entrada
 
+    // Ler a entrada
     FILE *csvfile_ptr = fopen(csv_filename, "r"); // Recuperar dados do csv
     FILE *binfile_ptr = fopen(out_filename, "wb"); // Escrever no binario
 
-    if (!(csvfile_ptr && binfile_ptr)) { // Testando ponteiros de arquivo
-        printf("Falha no processamento do arquivo.\n");
+    // Testando ponteiros de arquivo
+    if (!(csvfile_ptr && binfile_ptr)) {
         return -1;
     }
 
@@ -29,23 +29,21 @@ int create_table_command(char *csv_filename, char *out_filename, bool filetype) 
     return 1;
 }
 
-void select_command(bool filetype) {
-    // Ler a entrada
-    char *bin_filename = scan_word();
+int select_command(char *bin_filename, bool filetype) {
 
+    // Ler a entrada
     FILE *file_ptr = NULL;
     file_ptr = fopen(bin_filename, "rb");
 
     if (!file_ptr) {
-        printf("macaco");
+        return -1;
     }
 
     select_table(file_ptr, filetype);
 
-    if (bin_filename) {
-        free(bin_filename);
-    }
     fclose(file_ptr);
+
+    return 1;
 }
 
 void select_where_command() {
@@ -68,67 +66,37 @@ void select_where_command() {
     free(bin_filename);
 }
 
-int select_id_command() {
+int select_id_command(char *bin_filename, int rrn) {
+
     // Ler a entrada --- 
     // Esta func. so esta disponivel para arquivos de reg. fixos
 
-    char *bin_filename = scan_word();
-    printf("bin_filename: %s\n", bin_filename);
-    int RRN;
-    scanf("%d", &RRN);
-    printf("RRN: %d\n", RRN);
-
     // Acessar o arquivo para recuperar dados
-    FILE *src_bin_file = fopen(bin_filename, "rb");
-    free(bin_filename);
+    FILE *bin_file = fopen(bin_filename, "rb");
 
-    if (!src_bin_file) {
-        printf("Falha no processamento do arquivo.\n");
+    if (!bin_file) {
         return -1;
     }
 
     // Verificar se o RRN eh valido ---
-    int header_size = 182;
-    int byte_offset = RRN * 97 + header_size; // O arquivo fixo tem 97 bytes de tamanho
+    fseek(bin_file, 174, SEEK_SET);
+    int next_rrn; fread(&next_rrn, 4, 1, bin_file);
 
-    fseek(src_bin_file, 174, SEEK_SET);
-    int next_available_RRN;
-    fread(&next_available_RRN, 4, 1, src_bin_file);
-    printf("next_available_RRN: %d\n", next_available_RRN);
-    printf("byteoffset: %d\n", byte_offset);
+    int byte_offset = rrn * 97 + 182; // O arquivo fixo tem 97 bytes de tamanho
 
-    if (byte_offset >= next_available_RRN * 97 || RRN < 0) {
-        printf("Registro inexistente.\n");
+    if (rrn < 0 || rrn >= next_rrn) {
         return -1;
     }
 
-    fseek(src_bin_file, byte_offset, SEEK_SET);
+    fseek(bin_file, byte_offset, SEEK_SET);
 
-    data record = {}; // Inicializando reg. estatico
+    // data record = fread_record(bin_file, false);
+    fclose(bin_file);
 
-    char code_city, code_brand, code_model;
-
-    fread(&record.removed, 1, 1, src_bin_file);
-
-    if (record.removed == '1') {
-        printf("Registro inexistente.\n");
-        return -1;
+    /*if (record.removed == '0') {
+        printf_record(record);
+        return 1;
     }
-
-    fread(&record.next, 4, 1, src_bin_file);
-    fread(&record.id, 4, 1, src_bin_file);
-    fread(&record.year, 4, 1, src_bin_file);
-    fread(&record.amt, 4, 1, src_bin_file);
-    printf("qtd de veiculos: %d\n", record.amt);
-    fread(&record.state, 1, 2, src_bin_file);
-    printf("sigla: %s\n", record.state);
-
-    // Checar se existe cidade, pois isso afeta outros campos
-    // Nao terminei, esperando vc fazer a func. 2 bjs
-
-    // printf_record(record);
-
-    fclose(src_bin_file);
-
-    return 1;
+    else
+        return 0;*/
 }

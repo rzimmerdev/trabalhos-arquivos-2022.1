@@ -29,20 +29,20 @@ typedef enum Command_t {
 typedef enum File_type_t {
     TYPE_1 = true,
     TYPE_2 = false
-} file_type;
+} filetypes;
 
 
 int main() {
-    int option, file_type;
+    int option, filetype;
     scanf("%d ", &option);
     
     char *file_type_str = scan_word();
     if (file_type_str[4] == '1') {
-        file_type = TYPE_1;
+        filetype = TYPE_1;
     }
     
     else {
-        file_type = TYPE_2;
+        filetype = TYPE_2;
     }
 
     free(file_type_str);
@@ -52,18 +52,28 @@ int main() {
             char *csv_filename = scan_word();
             char *out_filename = scan_word();
 
-            int execute_status = create_table_command(csv_filename, out_filename, file_type);
+            int success = create_table_command(csv_filename, out_filename, filetype);
 
-            if (execute_status == 1) {
+            if (success)
                 binarioNaTela(out_filename);
-            }
+            else
+                printf("Falha no processamento do arquivo.");
             
             free(out_filename);
             free(csv_filename);
             break;
         }
         case SELECT: {
-            select_command();
+            char *bin_filename = scan_word();
+
+            int success = select_command(bin_filename, filetype);
+
+            if (success == -1)
+                printf("Falha no processamento do arquivo.");
+
+
+            free(bin_filename);
+
             break;
         }
         case SELECT_WHERE: {
@@ -71,8 +81,19 @@ int main() {
             break;
         }
         case SELECT_ID: {
-            select_id_command();
-            break;
+
+            int rrn; scanf("%d", &rrn);
+
+            char *bin_filename = scan_word();
+
+            int success = select_id_command(bin_filename, rrn);
+
+            if (success == -1)
+                printf("Falha no processamento do arquivo.");
+            else if (success == 0)
+                printf("Registro inexistente.\n");
+
+            free(bin_filename);
         }
     }
 
