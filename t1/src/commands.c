@@ -90,13 +90,14 @@ int select_id_command(char *bin_filename, int rrn) {
 
     fseek(bin_file, byte_offset, SEEK_SET);
 
-    // data record = fread_record(bin_file, false);
+    data record = fread_record(bin_file, false);
     fclose(bin_file);
 
-    /*if (record.removed == '0') {
+    if (record.removed == '0') {
         printf_record(record);
+        free_record(record);
         return 1;
     }
     else
-        return 0;*/
+        return 0;
 }

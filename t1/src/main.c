@@ -82,9 +82,8 @@ int main() {
         }
         case SELECT_ID: {
 
-            int rrn; scanf("%d", &rrn);
-
             char *bin_filename = scan_word();
+            int rrn; scanf("%d", &rrn);
 
             int success = select_id_command(bin_filename, rrn);
 

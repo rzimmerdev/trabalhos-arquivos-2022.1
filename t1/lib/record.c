@@ -7,17 +7,30 @@
 
 
 void free_record(data record) {
-
-    free(record.city); free(record.model); free(record.brand);
+    if (record.city)
+        free(record.city);
+    if (record.model)
+        free(record.model);
+    if (record.brand)
+        free(record.brand);
 }
 
 
 void printf_record(data record) {
 
-    printf("MARCA DO VEICULO: %s\n", record.brand);
-    printf("MODELO DO VEICULO: %s\n", record.model);
+    if (record.brand)
+        printf("MARCA DO VEICULO: %s\n", record.brand);
+    else
+        printf("MARCA DO VEICULO: NAO PREENCHIDO\n");
+    if (record.model)
+        printf("MARCA DO VEICULO: %s\n", record.model);
+    else
+        printf("MARCA DO VEICULO: NAO PREENCHIDO\n");
     printf("ANO DE FABRICACAO: %d\n", record.year);
-    printf("NOME DA CIDADE: %s\n", record.city);
+    if (record.city)
+        printf("MARCA DO VEICULO: %s\n", record.city);
+    else
+        printf("MARCA DO VEICULO: NAO PREENCHIDO\n");
     printf("QUANTIDADE DE VEICULOS: %d\n", record.amt);
     printf("\n");
 }
@@ -109,15 +122,11 @@ void write_record(FILE *stream, data record, bool is_fixed) {
     }
 }
 
-void read_record(FILE *stream, data record) {
-
-}
-
 data fread_record(FILE *stream, bool is_fixed) {
 
-    data record = {.city_size = 0, .city = "NAO PREENCHIDO",
-                   .brand_size = 0, .brand = "NAO PREENCHIDO",
-            .model_size = 0, .model = "NAO PREENCHIDO"
+    data record = {.city_size = 0,
+                   .brand_size = 0,
+            .model_size = 0,
     };
 
     fread(&record.removed, 1, 1, stream);
@@ -126,6 +135,7 @@ data fread_record(FILE *stream, bool is_fixed) {
         fseek(stream, 96, SEEK_CUR);
         return record;
     }
+
     if (is_fixed)
         fread(&record.next, 4, 1, stream);
     else {
