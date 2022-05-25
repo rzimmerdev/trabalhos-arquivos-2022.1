@@ -29,20 +29,20 @@ typedef enum Command_t {
 typedef enum File_type_t {
     TYPE_1 = true,
     TYPE_2 = false
-} filetypes;
+} file_type;
 
 
 int main() {
-    int option, filetype;
+    int option, file_type;
     scanf("%d ", &option);
     
     char *file_type_str = scan_word();
     if (file_type_str[4] == '1') {
-        filetype = TYPE_1;
+        file_type = TYPE_1;
     }
     
     else {
-        filetype = TYPE_2;
+        file_type = TYPE_2;
     }
 
     free(file_type_str);
@@ -52,14 +52,18 @@ int main() {
             char *csv_filename = scan_word();
             char *out_filename = scan_word();
 
-            create_table_command(csv_filename, out_filename, filetype);
-            binarioNaTela(out_filename);
+            int execute_status = create_table_command(csv_filename, out_filename, file_type);
+
+            if (execute_status == 1) {
+                binarioNaTela(out_filename);
+            }
+            
             free(out_filename);
             free(csv_filename);
             break;
         }
         case SELECT: {
-            select_command(filetype);
+            select_command();
             break;
         }
         case SELECT_WHERE: {

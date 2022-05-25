@@ -3,7 +3,7 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
-void create_table_command(char *csv_filename, char *out_filename, bool filetype);
+int create_table_command(char *csv_filename, char *out_filename, bool filetype);
 
 void select_command();
 
