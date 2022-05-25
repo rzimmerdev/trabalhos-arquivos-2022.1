@@ -52,8 +52,12 @@ int main() {
             char *csv_filename = scan_word();
             char *out_filename = scan_word();
 
-            create_table_command(csv_filename, out_filename, file_type);
-            binarioNaTela(out_filename);
+            int execute_status = create_table_command(csv_filename, out_filename, file_type);
+
+            if (execute_status == 1) {
+                binarioNaTela(out_filename);
+            }
+            
             free(out_filename);
             free(csv_filename);
             break;

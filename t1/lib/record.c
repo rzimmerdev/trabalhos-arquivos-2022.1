@@ -18,16 +18,17 @@ void printf_record(data record) {
     printf("MODELO DO VEICULO: %s\n", record.model);
     printf("ANO DE FABRICACAO: %d\n", record.year);
     printf("NOME DA CIDADE: %s\n", record.city);
-    printf("QAUNTIDADE DE VEICULOS: %d\n", record.amt);
+    printf("QUANTIDADE DE VEICULOS: %d\n", record.amt);
     printf("\n");
 }
 
 
 void write_header(FILE *stream, bool is_fixed) {
+    // Ao abrir para escrita, status deve ser 0 (arq. inconsistente/desatualizado)
     fwrite("0", 1, 1, stream);
 
     if (is_fixed) {
-        int top = -1;
+        int top = -1; // Nao ha registros removidos ainda
         fwrite(&top, 4, 1, stream);
     } else {
         long int top = -1;
@@ -46,10 +47,11 @@ void write_header(FILE *stream, bool is_fixed) {
         int next_rrn = 0;
         fwrite(&next_rrn, 4, 1, stream);
     } else {
-        long int byte_offset = 0;
-        fwrite(&byte_offset, 8, 1, stream);
+        long int next_byte_offset = 0;
+        fwrite(&next_byte_offset, 8, 1, stream);
     }
 
+    // Quantidade de registros logicamente marcados como removidos
     int removed_records = 0;
     fwrite(&removed_records, 4, 1, stream);
 }
@@ -77,8 +79,9 @@ void write_record(FILE *stream, data record, bool is_fixed) {
         fwrite("$$", 1, 2, stream);
     }
 
-    int city_space = 0, brand_space = 0, model_space = 0;
-    if (strlen(record.city)) {
+    // Tratando campos de tamanho variavel ---
+    int city_space = 0, brand_space = 0, model_space = 0; // Alocando espaco necessario
+    if (strlen(record.city)) { // Somente incluir no reg. efetivamente se existir
         fwrite(&record.city_size, 4, 1, stream);
         fwrite(&code_city, 1, 1, stream);
         fwrite(record.city, 1, record.city_size, stream);
@@ -99,14 +102,19 @@ void write_record(FILE *stream, data record, bool is_fixed) {
         model_space = record.model_size + 4 + 1;
     }
 
+    // Acabou o registro
     if (!is_fixed)
         return;
 
+    // Precisa completar o reg. de tam. fixo com lixo
     for (int i = 19 + city_space + brand_space + model_space; i < 97; i++) {
         fwrite("$", 1, 1, stream);
     }
 }
 
+void read_record(FILE *stream, data record) {
+
+}
 
 data fscanf_record(FILE *stream, bool is_fixed) {
 
