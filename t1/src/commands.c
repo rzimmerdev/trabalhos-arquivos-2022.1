@@ -8,6 +8,18 @@
 #include "csv_utils.h"
 #include "../lib/record.h"
 
+// Status de retorno
+#define ERROR -1
+#define SUCCESS 1
+#define MISSING_REGISTER 0
+
+// Informacao sobre os registros
+#define FIXED_REG_SIZE 97
+#define HEADER_SIZE 182
+
+// Informacao sobre o campo 'removido'
+#define IS_REMOVED '1'
+#define IS_NOT_REMOVED '0'
 
 int create_table_command(char *csv_filename, char *out_filename, bool filetype) {
 
@@ -17,7 +29,7 @@ int create_table_command(char *csv_filename, char *out_filename, bool filetype) 
 
     // Testando ponteiros de arquivo
     if (!(csvfile_ptr && binfile_ptr)) {
-        return -1;
+        return ERROR;
     }
 
     // Recuperando dados do csv e transferindo-os para o arquivo binario
@@ -26,7 +38,7 @@ int create_table_command(char *csv_filename, char *out_filename, bool filetype) 
     fclose(csvfile_ptr);
     fclose(binfile_ptr);
 
-    return 1;
+    return SUCCESS;
 }
 
 int select_command(char *bin_filename, bool filetype) {
@@ -36,14 +48,14 @@ int select_command(char *bin_filename, bool filetype) {
     file_ptr = fopen(bin_filename, "rb");
 
     if (!file_ptr) {
-        return -1;
+        return ERROR;
     }
 
     select_table(file_ptr, filetype);
 
     fclose(file_ptr);
 
-    return 1;
+    return SUCCESS;
 }
 
 void select_where_command() {
@@ -75,17 +87,17 @@ int select_id_command(char *bin_filename, int rrn) {
     FILE *bin_file = fopen(bin_filename, "rb");
 
     if (!bin_file) {
-        return -1;
+        return ERROR;
     }
 
     // Verificar se o RRN eh valido ---
     fseek(bin_file, 174, SEEK_SET);
     int next_rrn; fread(&next_rrn, 4, 1, bin_file);
 
-    int byte_offset = rrn * 97 + 182; // O arquivo fixo tem 97 bytes de tamanho
+    int byte_offset = rrn * FIXED_REG_SIZE + HEADER_SIZE; // O arquivo fixo tem 97 bytes de tamanho
 
     if (rrn < 0 || rrn >= next_rrn) {
-        return -1;
+        return ERROR;
     }
 
     fseek(bin_file, byte_offset, SEEK_SET);
@@ -93,11 +105,11 @@ int select_id_command(char *bin_filename, int rrn) {
     data record = fread_record(bin_file, false);
     fclose(bin_file);
 
-    if (record.removed == '0') {
+    if (record.removed == IS_NOT_REMOVED) {
         printf_record(record);
         free_record(record);
-        return 1;
+        return SUCCESS;
     }
     else
-        return 0;
+        return MISSING_REGISTER;
 }

@@ -5,6 +5,26 @@
 
 #include "record.h"
 
+// Status do arquivo
+#define BAD_STATUS "0"
+
+// Informacao para os campos do reg.
+#define INITIAL_VALUE -1
+#define GARBAGE "$"
+#define GARBAGE '$'
+#define CITY_CODE '0'
+#define BRAND_CODE '1'
+#define MODEL_CODE '2'
+
+// Informacao sobre os registros
+#define FIXED_REG_SIZE 97
+
+// Status de retorno
+#define ERROR -1
+#define SUCCESS 1
+
+// Informacao sobre o campo 'removido'
+#define IS_REMOVED '1'
 
 void free_record(data record) {
     if (record.city)
@@ -38,13 +58,13 @@ void printf_record(data record) {
 
 void write_header(FILE *stream, bool is_fixed) {
     // Ao abrir para escrita, status deve ser 0 (arq. inconsistente/desatualizado)
-    fwrite("0", 1, 1, stream);
+    fwrite(BAD_STATUS, 1, 1, stream);
 
     if (is_fixed) {
-        int top = -1; // Nao ha registros removidos ainda
+        int top = INITIAL_VALUE; // Nao ha registros removidos ainda
         fwrite(&top, 4, 1, stream);
     } else {
-        long int top = -1;
+        long int top = INITIAL_VALUE;
         fwrite(&top, 8, 1, stream);
     }
 
@@ -72,7 +92,7 @@ void write_header(FILE *stream, bool is_fixed) {
 
 void write_record(FILE *stream, data record, bool is_fixed) {
 
-    char code_city = '0', code_brand = '1', code_model = '2';
+    char code_city = CITY_CODE, code_brand = BRAND_CODE, code_model = MODEL_CODE;
 
     fwrite(&record.removed, 1, 1, stream);
     if (is_fixed) {
@@ -117,8 +137,8 @@ void write_record(FILE *stream, data record, bool is_fixed) {
         return;
 
     // Precisa completar o reg. de tam. fixo com lixo
-    for (int i = 19 + city_space + brand_space + model_space; i < 97; i++) {
-        fwrite("$", 1, 1, stream);
+    for (int i = 19 + city_space + brand_space + model_space; i < FIXED_REG_SIZE; i++) {
+        fwrite(GARBAGE, 1, 1, stream);
     }
 }
 
@@ -131,7 +151,7 @@ data fread_record(FILE *stream, bool is_fixed) {
 
     fread(&record.removed, 1, 1, stream);
 
-    if (record.removed == '1') {
+    if (record.removed == IS_REMOVED) {
         fseek(stream, 96, SEEK_CUR);
         return record;
     }
@@ -148,7 +168,7 @@ data fread_record(FILE *stream, bool is_fixed) {
 
     fread(record.state, 1, 2, stream);
 
-    if (record.state[0] == '$')
+    if (record.state[0] == GARBAGE)
         record.state[0] = '\0'; record.state[1] = '\0';
 
     int bytes_read = 19;
@@ -157,7 +177,7 @@ data fread_record(FILE *stream, bool is_fixed) {
         char is_empty; fread(&is_empty, 1, 1, stream);
 
         ungetc(is_empty, stream);
-        if (is_empty == '$')
+        if (is_empty == GARBAGE)
             break;
 
         int current_size;
@@ -166,19 +186,19 @@ data fread_record(FILE *stream, bool is_fixed) {
         fread(&current_code, 1, 1, stream);
 
         switch (current_code) {
-            case '0': {
+            case CITY_CODE: {
                 record.city_size = current_size;
                 record.city = malloc(sizeof(char) * current_size + 1);
                 fread(record.city, 1, current_size, stream); record.city[current_size] = '\0';
                 break;
             }
-            case '1': {
+            case BRAND_CODE: {
                 record.brand_size = current_size;
                 record.brand = malloc(sizeof(char) * current_size + 1);
                 fread(record.brand, 1, current_size, stream); record.brand[current_size] = '\0';
                 break;
             }
-            case '2': {
+            case MODEL_CODE: {
                 record.model_size = current_size;
                 record.model = malloc(sizeof(char) * current_size + 1);
                 fread(record.model, 1, current_size, stream); record.model[current_size] = '\0';
@@ -188,7 +208,7 @@ data fread_record(FILE *stream, bool is_fixed) {
 
         bytes_read += 5 + current_size;
     }
-    fseek(stream, 97 - bytes_read, SEEK_CUR);
+    fseek(stream, FIXED_REG_SIZE - bytes_read, SEEK_CUR);
 
     return record;
 }
@@ -198,7 +218,7 @@ int select_table(FILE *stream, bool is_fixed) {
 
     if (getc(stream) == '0') {
         printf("Falha no processamento do arquivo.");
-        return -1;
+        return ERROR;
     }
 
     fseek(stream, is_fixed ? 174 : 189, SEEK_SET);
@@ -215,13 +235,13 @@ int select_table(FILE *stream, bool is_fixed) {
 
         data scanned = fread_record(stream, is_fixed);
 
-        if (scanned.removed == '1') {
+        if (scanned.removed == IS_REMOVED) {
             printf("Registro inexistente.\n");
         }
 
-        next_rrn--; current_byteoffset += 97;
+        next_rrn--; current_byteoffset += FIXED_REG_SIZE;
         printf_record(scanned);
         free_record(scanned);
     }
-    return 1;
+    return SUCCESS;
 }
