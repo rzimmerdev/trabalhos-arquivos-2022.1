@@ -7,7 +7,11 @@
 
 
 char *scan_word() {
-
+    /* Scans a single word ended in ' ' (space character) or newline character.
+     *
+     * Returns:
+     *     char *: Initialized pointer to zero ended string
+     */
     int size = 0;
     char *word = malloc(size * sizeof(char));
     char current_char;
@@ -25,8 +29,17 @@ char *scan_word() {
 }
 
 
-char *fscan_until(FILE *stream, char separator) {
 
+char *fscan_until(FILE *stream, char separator) {
+    /* Scans an input stream up until given separator character is found, or until EOF.
+     *
+     * Args:
+     *     FILE *stream: Stream to fscan characters from
+     *     char separator: Character to compare each scanned character to
+     *
+     * Returns:
+     *     char *: Initialized pointer to zero ended string
+     */
     int buffer = BUFFER_SIZE, i = 0;
     char *ptr = malloc(sizeof(char) * buffer);
 
@@ -52,7 +65,12 @@ char *fscan_until(FILE *stream, char separator) {
 
 
 char *scan_word_quoted() {
-
+    /* Scans unlimited characters up until a quote character is found, then, scans and stores characters up until,
+     * new quotes are found.
+     *
+     * Returns:
+     *     char *: Initialized pointer to zero ended string corresponding to text inbetween quotes
+     */
     int size = 0;
     char *word = malloc(size * sizeof(char));
     char current_char;

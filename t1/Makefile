@@ -9,4 +9,4 @@ run: src/main.c
 
 valgrind: all
 	make all
-	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./bin/main < $(case)
+	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -s ./bin/main < $(case) > saida.txt

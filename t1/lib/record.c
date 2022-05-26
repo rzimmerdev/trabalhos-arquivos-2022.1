@@ -6,6 +6,11 @@
 #include "record.h"
 
 void free_record(data record) {
+    /* Frees all variable sized fields inside record, if allocated.
+     *
+     * Args:
+     *     data record: Record with fields to be freed
+     */
     if (record.city)
         free(record.city);
     if (record.model)
@@ -15,37 +20,69 @@ void free_record(data record) {
 }
 
 
-void get_file_size(FILE *stream, void *size, bool is_fixed) {
-    if (is_fixed) {
-        fseek(stream, NEXT_RRN_b, SEEK_SET);
-        int next_rrn;
-        fread(&next_rrn, sizeof(int), 1, stream);
-        memcpy(size, &next_rrn, sizeof(int));
-    } else {
-        fseek(stream, NEXT_BYTEOFFSET_b, SEEK_SET);
-        long int next_byteoffset;
-        fread(&next_byteoffset, sizeof(long int), 1, stream);
-        memcpy(size, &next_byteoffset, sizeof(long int));
-    }
-}
-
-
 void printf_record(data record) {
+    /* Prints specific field values inside given header, taking into account whether they
+     * are filled or not.
+     *
+     * Args:
+     *     data record: Record from which to read fields from
+     */
     char empty[] = "NAO PREENCHIDO";
     printf("MARCA DO VEICULO: %s\n", record.brand ? record.brand : empty);
     printf("MODELO DO VEICULO: %s\n", record.model ? record.model : empty);
-    if (record.year != -1)
+    if (record.year != -1) {
         printf("ANO DE FABRICACAO: %d\n", record.year);
-    else
+    } else {
         printf("ANO DE FABRICACAO: %s\n", empty);
+    }
     printf("NOME DA CIDADE: %s\n", record.city ? record.city : empty);
     printf("QUANTIDADE DE VEICULOS: %d\n", record.total);
     printf("\n");
 }
 
+void get_file_size(FILE *stream, void *size, bool is_fixed) {
+    /* Sets _size_ to NEXT_RRN value or NEXT_BYTEOFFSET given an input file with header information.
+     *
+     * Args:
+     *     FILE *stream: File stream from which to read header
+     *     void *size: int or long int type to write size to.
+     *     bool is_fixed: File encoding to use, can be either FIXED (1) or VARIABLE (0).
+     */
+
+    // Access either NEXT_RRN or NEXT_BYTEOFFSET binary value inside header.
+    if (is_fixed)
+        fseek(stream, NEXT_RRN_b, SEEK_SET);
+    else
+        fseek(stream, NEXT_BYTEOFFSET_b, SEEK_SET);
+
+    fread(size, is_fixed ? sizeof(int) : sizeof(long int), 1, stream);
+}
+
+
+int write_variable_field(FILE *stream, char *value, char code, int size) {
+    if (strlen(value)) {
+        fwrite(&size, 4, 1, stream);
+        fwrite(&code, 1, 1, stream);
+        fwrite(value, 1, size, stream);
+        return size + 4 + 1;
+    }
+    return 0;
+}
+
 
 void write_record(FILE *stream, data record, bool is_fixed) {
-
+    /* Write given record to specified file stream, using one of two possible encodings:
+     *
+     * is_fixed = FIXED    - Fixes maximum record size to 97 bytes, either trucating fields or
+     *                       filling remaining spaces with _garbage_
+     *
+     * is_fixed = VARIABLE - Each record has a variable size, and therefore no size restraints are applied.
+     *
+     * Args:
+     *     FILE *stream: File stream to write record information to
+     *     data record: Record variable to access fields from and write them in order
+     *     bool is_fixed: File encoding to use when writing record (can be either FIXED (1) or VARIABLE (0))
+     */
     char code_city = CITY_CODE, code_brand = BRAND_CODE, code_model = MODEL_CODE;
 
     fwrite(&record.removed, 1, 1, stream);
@@ -63,46 +100,34 @@ void write_record(FILE *stream, data record, bool is_fixed) {
         fwrite(record.state, 1, 2, stream);
     }
 
-    // Tratando campos de tamanho variavel ---
-    int city_space = 0, brand_space = 0, model_space = 0; // Alocando espaco necessario
-    if (strlen(record.city)) { // Somente incluir no reg. efetivamente se existir
-        fwrite(&record.city_size, 4, 1, stream);
-        fwrite(&code_city, 1, 1, stream);
-        fwrite(record.city, 1, record.city_size, stream);
-        city_space = record.city_size + 4 + 1;
-    }
+    int city_space = write_variable_field(stream, record.city, code_city, record.city_size);
+    int brand_space = write_variable_field(stream, record.brand, code_brand, record.brand_size);
+    int model_space = write_variable_field(stream, record.model, code_model, record.model_size);
 
-    if (strlen(record.brand)) {
-        fwrite(&record.brand_size, 4, 1, stream);
-        fwrite(&code_brand, 1, 1, stream);
-        fwrite(record.brand, 1, record.brand_size, stream);
-        brand_space = record.brand_size + 4 + 1;
-    }
-
-    if (strlen(record.model)) {
-        fwrite(&record.model_size, 4, 1, stream);
-        fwrite(&code_model, 1, 1, stream);
-        fwrite(record.model, 1, record.model_size, stream);
-        model_space = record.model_size + 4 + 1;
-    }
-
-    // Acabou o registro
     if (!is_fixed)
         return;
 
-    // Precisa completar o reg. de tam. fixo com lixo
+    // If record has fixed size, after filling its fields, fill remaining space with
+    // garbage character, as to match fixed size.
     for (int i = FIXED_MINIMUM + city_space + brand_space + model_space; i < FIXED_REG_SIZE; i++) {
-        char garbage[1] = {GARBAGE};
-        fwrite(garbage, 1, 1, stream);
+        fputc(GARBAGE, stream);
     }
 }
 
 data fread_record(FILE *stream, bool is_fixed) {
-
+    /* Read one record from input file stream, given specific record type encoding.
+     *
+     * Args:
+     *     FILE *stream: File stream to read record information from
+     *     bool is_fixed: File encoding to use when reading the record (can be either FIXED (1) or VARIABLE (0))
+     */
     data record = {.city_size = 0, .brand_size = 0, .model_size = 0};
 
     fread(&record.removed, 1, 1, stream);
 
+    // Skip remaining characters if current record is logically marked as removed.
+    // If record is fixed-sized, simply jump 97 - 1 characters, but if record is variable-sized,
+    // it is still necessary to read size of remaining characters from the record itself.
     if (record.removed == IS_REMOVED) {
         if (is_fixed) {
             fseek(stream, 96, SEEK_CUR);
@@ -113,6 +138,8 @@ data fread_record(FILE *stream, bool is_fixed) {
         }
         return record;
     }
+
+    // Next, write each field in record according to encoding type in desired order:
 
     if (is_fixed)
         fread(&record.next, 4, 1, stream);
@@ -133,6 +160,8 @@ data fread_record(FILE *stream, bool is_fixed) {
     int bytes_read = is_fixed ? FIXED_MINIMUM : VARIABLE_MINIMUM;
 
     for (int i = 0; i < 3; i++) {
+        // Decide whether to write a specific variable-sized field or just skip it in the
+        // final file (Field should be skipped if it is variable-sized and is also empty).
         if (is_fixed) {
             char is_empty; fread(&is_empty, 1, 1, stream);
 
@@ -149,6 +178,7 @@ data fread_record(FILE *stream, bool is_fixed) {
         fread(&current_size, 4, 1, stream);
         fread(&current_code, 1, 1, stream);
 
+        // Read one of the three possible variable fields into its respective variable inside the struct
         switch (current_code) {
             case CITY_CODE: {
                 record.city_size = current_size;
@@ -173,6 +203,7 @@ data fread_record(FILE *stream, bool is_fixed) {
         bytes_read += 5 + current_size;
     }
 
+    // If record is fixed_size, skip garbage characters at end based on number of bytes already read.
     if (is_fixed)
         fseek(stream, FIXED_REG_SIZE - bytes_read, SEEK_CUR);
 

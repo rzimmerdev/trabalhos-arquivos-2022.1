@@ -1,27 +1,20 @@
 /*
- * Nomes dos integrantes da equipe (G1): Danielle Modesti e Rafael Zimmer
- * Nos USP: 12543544 e 12542612
- * Disciplina: Organizacao de Arquivos - 3o semestre (2022.1)
- * Primeiro Trabalho Pratico - frota de veiculos no Brasil.
+ * Nomes (G1): Danielle Modesti e Rafael Zimmer
+ * nUSP: 12543544 e 12542612
+ * Disciplina: Organizacao de Arquivos - semestre (2022.1)
+ * Trabalho 1 — frota de veículos no Brasil.
  *
- * Este trabalho tem como  objetivo armazenar dados em arquivos binarios de
+ * Este trabalho visa armazenar dados em arquivos binarios de
  * acordo com organizacoes de campos e registros diferentes, bem como
  * desenvolver funcionalidades para recuperar dados desses arquivos.
- * 
 */
-
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "../lib/utils.h"
 #include "commands.h"
 
-// Status de retorno
-#define ERROR -1
-#define SUCCESS 1
-#define MISSING_REGISTER 0
-
-// Funcionalidades do trabalho
+// Available op codes to be used for four different commands
 typedef enum Command_t {
     CREATE_TABLE = 1,
     SELECT = 2,
@@ -29,11 +22,12 @@ typedef enum Command_t {
     SELECT_ID = 4
 } command;
 
-// Tipo de arquivo
-typedef enum File_type_t {
+// Possible filetype encodings to be used when reading or writting binary files
+typedef enum Filetype_t {
     FIXED = 1,
     VARIABLE = 0
 } filetypes;
+
 
 int main() {
     int option, filetype;
@@ -55,25 +49,25 @@ int main() {
             char *csv_filename = scan_word();
             char *out_filename = scan_word();
 
-            int success = create_table_command(csv_filename, out_filename, filetype);
+            int status = create_table_command(csv_filename, out_filename, filetype);
+            free(csv_filename);
 
-            if (success)
+            if (status)
                 binarioNaTela(out_filename);
             else
                 printf("Falha no processamento do arquivo.");
-            
             free(out_filename);
-            free(csv_filename);
+
             break;
         }
         case SELECT: {
             char *bin_filename = scan_word();
 
-            int success = select_command(bin_filename, filetype);
-            if (!success)
-                printf("Falha no processamento do arquivo.");
-
+            int status = select_command(bin_filename, filetype);
             free(bin_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
 
             break;
         }
@@ -82,8 +76,14 @@ int main() {
             char *bin_filename = scan_word();
             int total_parameters; scanf("%d ", &total_parameters);
 
-            select_where_command(bin_filename, total_parameters, filetype);
+            int status = select_where_command(bin_filename, total_parameters, filetype);
             free(bin_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
+
             break;
         }
         case SELECT_ID: {
@@ -91,16 +91,17 @@ int main() {
             char *bin_filename = scan_word();
             int rrn; scanf("%d", &rrn);
 
-            int success = select_id_command(bin_filename, rrn);
+            int status = select_rrn_command(bin_filename, rrn);
+            free(bin_filename);
 
-            if (success == ERROR)
+            if (status == ERROR_CODE)
                 printf("Falha no processamento do arquivo.");
-            else if (success == MISSING_REGISTER)
+            else if (status == NOT_FOUND)
                 printf("Registro inexistente.\n");
 
-            free(bin_filename);
+            break;
         }
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }
