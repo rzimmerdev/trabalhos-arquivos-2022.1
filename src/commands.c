@@ -117,18 +117,13 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
      */
     FILE *file_ptr = fopen(bin_filename, "rb");
 
-    if (file_ptr == NULL)
+    if (file_ptr == NULL )
         return ERROR_CODE;
 
-    header template_header = {};
+    header file_header = fread_header(file_ptr, is_fixed);
 
-    if (is_fixed)
-        get_file_size(file_ptr, &template_header.next_rrn, is_fixed);
-    else
-        get_file_size(file_ptr, &template_header.next_byteoffset, is_fixed);
-
-    // Start iterating through records after skipping header bytes.
-    fseek(file_ptr, is_fixed ? FIXED_HEADER : VARIABLE_HEADER, SEEK_SET);
+    if (file_header.status[0] == BAD_STATUS[0])
+        return ERROR_CODE;
 
     // Read template filter from console, to be able to compare such filter with each
     // record in given file.
@@ -181,7 +176,7 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
         }
     }
 
-    int status = select_where(file_ptr, template, template_header, is_fixed);
+    int status = select_where(file_ptr, template, file_header, is_fixed);
 
     free_record(template);
     fclose(file_ptr);
