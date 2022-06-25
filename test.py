@@ -35,6 +35,8 @@ def test_cases(idx=None):
         else:
             print(f"Caso {i}: Ok.")
 
+    subprocess.run([f"cp files2/* bin/"], shell=True)
+
 
 def main():
     if len(sys.argv) > 2:
