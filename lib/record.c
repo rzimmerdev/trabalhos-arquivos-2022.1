@@ -153,9 +153,10 @@ data fread_record(FILE *stream, bool is_fixed) {
     fread(&record.total, 4, 1, stream);
 
     fread(record.state, 1, 2, stream);
-
-    if (record.state[0] == GARBAGE)
-        record.state[0] = '\0'; record.state[1] = '\0';
+    if (record.state[0] == GARBAGE) {
+        record.state[0] = '\0';
+        record.state[1] = '\0';
+    }
 
     int bytes_read = is_fixed ? FIXED_MINIMUM : VARIABLE_MINIMUM;
 
@@ -208,4 +209,11 @@ data fread_record(FILE *stream, bool is_fixed) {
         fseek(stream, FIXED_REG_SIZE - bytes_read, SEEK_CUR);
 
     return record;
+}
+
+
+void remove_record(FILE *stream, long int record_offset) {
+    fseek(stream, record_offset, SEEK_SET);
+    char removed[1]; removed[0] = IS_REMOVED;
+    fwrite(removed, sizeof(char), 1, stream);
 }

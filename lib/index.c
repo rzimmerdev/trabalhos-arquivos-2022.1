@@ -7,17 +7,37 @@
 
 
 // TODO: Add comments
+void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
 
-void create_index(FILE *o_stream, FILE *d_stream, bool is_fixed) {
+    update_status(index_stream, BAD_STATUS);
+    header table_header = fread_header(origin_stream, is_fixed);
 
-    header placeholder = {.status = BAD_STATUS};
+    int current_rrn = 0;
+    long int current_byteoffset = ftell(origin_stream);
 
-    fwrite(placeholder.status, sizeof(char), 1, d_stream);
+    while ((is_fixed && (current_rrn < table_header.next_rrn)) || (!is_fixed && current_byteoffset < table_header.next_byteoffset)) {
+        data to_indexate = fread_record(origin_stream, is_fixed);
+        if (to_indexate.removed == IS_REMOVED) {
+            current_rrn += 1;
+            current_byteoffset = ftell(origin_stream);
 
-    header table_header = fread_header(o_stream, is_fixed);
+            free_record(to_indexate);
+            continue;
+        }
 
-    for (int current_rrn = 0; current_rrn < table_header.next_rrn; current_rrn++) {
+        fwrite(&to_indexate.id, sizeof(int), 1, index_stream);
 
+        if (is_fixed)
+            fwrite(&current_rrn, sizeof(int), 1, index_stream);
+        else
+            fwrite(&current_byteoffset, sizeof(long int), 1, index_stream);
 
+        current_rrn += 1;
+        current_byteoffset = ftell(origin_stream);
+        free_record(to_indexate);
     }
+
+    update_status(index_stream, OK_STATUS);
 }
+
+

@@ -10,6 +10,7 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../lib/utils.h"
 #include "commands.h"
@@ -23,6 +24,7 @@ typedef enum Command_t {
     SELECT_WHERE = 3,
     SELECT_ID = 4,
     CREATE_INDEX = 5,
+    REMOVE_RECORDS = 6,
 } command;
 
 // Possible filetype encodings to be used when reading or writting binary files
@@ -35,7 +37,7 @@ typedef enum Filetype_t {
 int main() {
     int option, filetype;
     scanf("%d ", &option);
-    
+
     char *file_type_str = scan_word();
     if (file_type_str[4] == '1') {
         filetype = FIXED;
@@ -107,15 +109,52 @@ int main() {
         }
         case CREATE_INDEX: {
 
-            char *bin_filename = scan_word();
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+            char data_path[4 + (int) strlen(data_filename)];
+            strcpy(data_path, "bin/");
+            strcat(data_path, data_filename);
+            char index_path[4 + (int) strlen(index_filename)];
+            strcpy(index_path, "bin/");
+            strcat(index_path, index_filename);
 
-            create_index_command(bin_filename, filetype);
+            int status = create_index_command(data_path, index_path, filetype);
+            free(data_filename);
+            free(index_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
+
+            break;
+        }
+
+        case REMOVE_RECORDS: {
+
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+            char data_path[4 + (int) strlen(data_filename)];
+            strcpy(data_path, "bin/");
+            strcat(data_path, data_filename);
+            char index_path[4 + (int) strlen(index_filename)];
+            strcpy(index_path, "bin/");
+            strcat(index_path, index_filename);
+
+            int total_filters; scanf("%d ", &total_filters);
+
+            int status = delete_records_command(data_path, index_path, total_filters, filetype);
+            free(data_filename);
+            free(index_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
 
             break;
         }
     }
-
-    printf("\n");
 
     return 0;
 }

@@ -4,6 +4,7 @@
 #include "table.h"
 // TODO: Add more comments
 
+
 void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite) {
     /* Writes empty header information into file to be used as a placeholder for future accesses.
      *
@@ -11,11 +12,7 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
      *     FILE *stream: File stream to write header information to
      *     bool is_fixed: File encoding to use as reference (can be either FIXED (1) or VARIABLE (0))
      */
-    fseek(stream, 0, SEEK_SET); // Be sure that header is being written at file beginning
-
-    // Write BAD_STATUS to header, as it is currently being worked on and could therefore be corrupted
-    // if program closes unexpectedly.
-    fwrite(placeholder.status, sizeof(char), 1, stream);
+    update_status(stream, BAD_STATUS);
 
     if (is_fixed) {
         fwrite(&placeholder.top, sizeof(int), 1, stream);
@@ -46,6 +43,12 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
 }
 
 
+void update_status(FILE *stream, char STATUS[]) {
+    fseek(stream, 0, SEEK_SET);
+    fwrite(STATUS, sizeof(char), 1, stream);
+}
+
+
 header fread_header(FILE *stream, bool is_fixed) {
     // TODO: docstring
     // TODO: Refactor comments
@@ -56,7 +59,6 @@ header fread_header(FILE *stream, bool is_fixed) {
     // Write BAD_STATUS to header, as it is currently being worked on and could therefore be corrupted
     // if program closes unexpectedly.
     fread(placeholder.status, sizeof(char), 1, stream);
-
     if (is_fixed) {
         fread(&placeholder.top, sizeof(int), 1, stream);
     } else {
@@ -122,8 +124,6 @@ int select_table(FILE *stream, bool is_fixed) {
             total_records++;
             printf_record(scanned);
         }
-        else
-            printf("Registro inexistente.\n");
 
         free_record(scanned);
     }
@@ -132,6 +132,31 @@ int select_table(FILE *stream, bool is_fixed) {
         return SUCCESS_CODE;
     else
         return NOT_FOUND;
+}
+
+
+bool compare_record(FILE *stream, data template, data record, bool is_fixed) {
+    // Verify if template filter has any of the following fixed or variable inputs selected,
+    // and if it exists, compare it to its counterpart in the current record (if it's non-empty in the first place)
+
+    if ((template.year != EMPTY && (record.year == -1 || template.year != record.year)) ||
+        (template.id != EMPTY && (record.id == -1 || template.id != record.id)) ||
+        (template.total != EMPTY && (record.total == -1 || template.total != record.total))) {
+
+            // Free record and continue iterating otherwise (in which case given filter doesn't match current record).
+        return false;
+    }
+
+    if ((template.city && !record.city) || (template.city && record.city && strcmp(template.city, record.city)) ||
+        (template.brand && !record.brand) || (template.brand && record.brand && strcmp(template.brand, record.brand)) ||
+        (template.model && !record.model) || (template.model && record.model && strcmp(template.model, record.model)) ||
+        (template.state && !record.state) || (template.state && record.state && strcmp(template.state, record.state))) {
+
+            // Free record and continue iterating otherwise. (in which case given filter doesn't match current record).
+        return false;
+    }
+
+    return true;
 }
 
 
@@ -157,12 +182,7 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
     while ((is_fixed && (header_template.next_rrn-- > 0)) || (!is_fixed && ftell(stream) < header_template.next_byteoffset)) {
 
         data record = fread_record(stream, is_fixed);
-
         // If record is marked as removed, ignore it and continue iterating.
-        if (record.removed == IS_REMOVED) {
-            free_record(record);
-            continue;
-        }
 
         // Verify if template filter has any of the following fixed or variable inputs selected,
         // and if it exists, compare it to its counterpart in the current record (if it's non-empty in the first place)
@@ -191,4 +211,26 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
     }
 
     return total_found > 0 ? SUCCESS_CODE : NOT_FOUND;
+}
+
+
+int remove_where(FILE *stream, data filter, header header_template, bool is_fixed) {
+
+    // char is_removed[1]; is_removed[0] = IS_REMOVED;
+    // fwrite(is_removed, sizeof(char), 1, stream);
+    // fseek(stream, -1, SEEK_CUR);
+
+    while ((is_fixed && (header_template.next_rrn-- > 0)) || (!is_fixed && ftell(stream) < header_template.next_byteoffset)) {
+        long int record_offset = ftell(stream);
+        data record = fread_record(stream, is_fixed);
+        long int next_offset = ftell(stream);
+
+        if (compare_record(stream, filter, record, is_fixed)) {
+            remove_record(stream, record_offset);
+            fseek(stream, next_offset, SEEK_SET);
+        }
+        free_record(record);
+    }
+
+    return 1;
 }

@@ -73,7 +73,9 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
 int select_rrn_command(char *bin_filename, int rrn);
 
 
-int create_index_command(char *bin_filename, bool is_fixed);
+int create_index_command(char *data_filename, char *index_filename, bool is_fixed);
 
+
+int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed);
 
 #endif //COMMANDS_H

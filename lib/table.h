@@ -20,6 +20,7 @@ typedef struct Header_t {
 
 } header;
 
+
 /* Writes empty header information into file to be used as a placeholder for future accesses.
 *
 * Args:
@@ -28,8 +29,13 @@ typedef struct Header_t {
 */
 void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite);
 
+
+void update_status(FILE *stream, char STATUS[]);
+
+
 // TODO: Description
 header fread_header(FILE *stream, bool is_fixed);
+
 
 /* Prints to console records read from given file, according to expected file encoding type.
 *
@@ -41,6 +47,7 @@ header fread_header(FILE *stream, bool is_fixed);
 *     int: Returns SUCCESS_CODE if table could be accessed, and ERROR_CODE otherwise.
 */
 int select_table(FILE *stream, bool is_fixed);
+
 
 /* Prints to console all records in given file that match specific record template filter.
 *
@@ -54,5 +61,8 @@ int select_table(FILE *stream, bool is_fixed);
 *     int: Returns SUCCESS_CODE if any record could be read, and NOT_FOUND otherwise.
 */
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
+
+
+int remove_where(FILE *stream, data template, header header_template, bool is_fixed);
 
 #endif //T1_TABLE_H

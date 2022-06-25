@@ -5,6 +5,7 @@
 #define RECORD_H
 
 #define BAD_STATUS "0"
+#define OK_STATUS "1"
 
 // Header constants
 #define NEXT_RRN_b 174
@@ -107,5 +108,9 @@ void write_record(FILE *dest, data record, bool is_fixed);
 *     bool is_fixed: File encoding to use when reading the record (can be either FIXED (1) or VARIABLE (0))
 */
 data fread_record(FILE *stream, bool is_fixed);
+
+
+void remove_record(FILE *stream, long int record_offset);
+
 
 #endif //RECORD_H
