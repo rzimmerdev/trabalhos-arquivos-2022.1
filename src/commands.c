@@ -255,26 +255,36 @@ int create_index_command(char *data_filename, char *index_filename, bool is_fixe
 }
 
 
-int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed) {
-
+int verify_stream(char *data_filename, char *index_filename) {
     FILE *data_file_ptr = fopen(data_filename, "rb+");
 
     if (data_file_ptr == NULL)
         return ERROR_CODE;
 
-    FILE *index_file_ptr = fopen(data_filename, "rb+");
+    FILE *index_file_ptr = fopen(index_filename, "rb+");
 
     if (index_file_ptr == NULL)
         return ERROR_CODE;
 
-    header file_header = fread_header(data_file_ptr, is_fixed);
+    fclose(data_file_ptr);
+    fclose(index_file_ptr);
+    return SUCCESS_CODE;
+}
+
+
+int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed) {
+
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+        return ERROR_CODE;
+    FILE *data_file_ptr = fopen(data_filename, "rb+");
+    FILE *index_file_ptr = fopen(data_filename, "rb+");
 
     for (; total_filters > 0; total_filters--) {
-        fseek(data_file_ptr, is_fixed ? FIXED_HEADER : VARIABLE_HEADER, SEEK_SET);
+        fseek(data_file_ptr, 0, SEEK_SET);
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        remove_where(data_file_ptr, filter, file_header, is_fixed);
+        remove_where(data_file_ptr, filter, is_fixed);
         free_record(filter);
     }
 
