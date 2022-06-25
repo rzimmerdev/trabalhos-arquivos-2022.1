@@ -75,7 +75,12 @@ char *scan_word_quoted() {
      */
     int size = 0;
     char *word = malloc(size * sizeof(char));
-    char current_char;
+    char current_char = getchar();
+    if (current_char == 'N') {
+        word = realloc(word, 1 * sizeof(char));
+        word[0] = '\0';
+        getchar(); getchar(); getchar();
+    } ungetc(current_char, stdin);
 
     while ((current_char = getchar()) != '"');
 
