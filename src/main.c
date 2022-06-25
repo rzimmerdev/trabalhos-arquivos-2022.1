@@ -166,6 +166,19 @@ int main() {
         }
 
         case UPDATE_RECORDS: {
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+            int total_updates; scanf("%d ", &total_updates);
+
+            int status = update_records_command(data_filename, total_updates, filetype);
+            free(data_filename);
+            free(index_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
+
             break;
         }
     }
