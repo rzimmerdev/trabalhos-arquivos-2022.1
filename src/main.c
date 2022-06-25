@@ -1,13 +1,17 @@
 /*
  * Nomes (G1): Danielle Modesti e Rafael Zimmer
- * nUSP: 12543544 e 12542612
+ * nUSPs: 12543544 e 12542612
  * Disciplina: Organizacao de Arquivos - semestre (2022.1)
- * Trabalho 1 — frota de veículos no Brasil.
+ * Trabalho 2 — frota de veículos no Brasil.
  *
- * Este trabalho visa armazenar dados em arquivos binarios de
- * acordo com organizacoes de campos e registros diferentes, bem como
- * desenvolver funcionalidades para recuperar dados desses arquivos.
+ * Este trabalho visa inserir, remover e atualizar dados em arquivos binarios de
+ * acordo com organizacoes de campos e registros diferentes, bem como desenvolver
+ * funcionalidades para recuperar dados desses arquivos usando indices. 
+ * 
+ * As funcionalidades do trabalho 1 fornecem uma base a partir da qual as do
+ * trabalho 2 sao desenvolvidas :)
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +21,7 @@
 
 // TODO: Add more comments
 
-// Available op codes to be used for four different commands
+// Available op codes to be used for eight different commands
 typedef enum Command_t {
     CREATE_TABLE = 1,
     SELECT = 2,
@@ -25,9 +29,11 @@ typedef enum Command_t {
     SELECT_ID = 4,
     CREATE_INDEX = 5,
     REMOVE_RECORDS = 6,
+    INSERT_RECORDS = 7,
+    UPDATE_RECORDS = 8
 } command;
 
-// Possible filetype encodings to be used when reading or writting binary files
+// Possible filetype encodings to be used when reading or writing binary files
 typedef enum Filetype_t {
     FIXED = 1,
     VARIABLE = 0
@@ -154,7 +160,15 @@ int main() {
 
             break;
         }
+
+        case INSERT_RECORDS: {
+            break;
+        }
+
+        case UPDATE_RECORDS: {
+            break;
+        }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
