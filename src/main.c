@@ -33,7 +33,7 @@ typedef enum Command_t {
     UPDATE_RECORDS = 8
 } command;
 
-// Possible filetype encodings to be used when reading or writting binary files
+// Possible filetype encodings to be used when reading or writing binary files
 typedef enum Filetype_t {
     FIXED = 1,
     VARIABLE = 0
@@ -160,7 +160,15 @@ int main() {
 
             break;
         }
+
+        case INSERT_RECORDS: {
+            break;
+        }
+
+        case UPDATE_RECORDS: {
+            break;
+        }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
