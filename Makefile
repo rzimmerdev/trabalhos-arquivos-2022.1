@@ -1,5 +1,5 @@
 dependencies = lib/utils.o lib/record.o lib/table.o lib/index.o src/csv_utils.o src/commands.o
-individual_case = cases2/in/5.in
+individual_case = cases2/in/1.in
 
 cases_input = cases2/in
 cases_output = cases2/out
