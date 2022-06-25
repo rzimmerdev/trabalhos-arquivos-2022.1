@@ -71,3 +71,9 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
 }
 
 
+long int find_by_id(FILE *index_stream, int id) {
+
+
+
+    printf("%lu\n", ftell(index_stream) - sizeof(char));
+}

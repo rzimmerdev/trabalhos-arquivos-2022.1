@@ -34,7 +34,6 @@ def test_cases(idx=None):
             print(to_print, end="")
         else:
             print(f"Caso {i}: Ok.")
-
     subprocess.run([f"cp files2/* bin/"], shell=True)
 
 
