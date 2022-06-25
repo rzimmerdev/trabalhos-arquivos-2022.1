@@ -162,10 +162,51 @@ int main() {
         }
 
         case INSERT_RECORDS: {
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+            char data_path[4 + (int) strlen(data_filename)];
+            strcpy(data_path, "bin/");
+            strcat(data_path, data_filename);
+            char index_path[4 + (int) strlen(index_filename)];
+            strcpy(index_path, "bin/");
+            strcat(index_path, index_filename);
+
+            int total_insertions; scanf("%d ", &total_insertions);
+
+            int status = insert_records_command(data_path, index_path, total_insertions, filetype);
+
+            free(data_filename);
+            free(index_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
+
             break;
         }
 
         case UPDATE_RECORDS: {
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+            char data_path[4 + (int) strlen(data_filename)];
+            strcpy(data_path, "bin/");
+            strcat(data_path, data_filename);
+            char index_path[4 + (int) strlen(index_filename)];
+            strcpy(index_path, "bin/");
+            strcat(index_path, index_filename);
+
+            int total_updates; scanf("%d ", &total_updates);
+
+            int status = update_records_command(data_path, index_path, total_updates, filetype);
+            free(data_filename);
+            free(index_filename);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
+
             break;
         }
     }
