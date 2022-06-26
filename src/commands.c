@@ -293,14 +293,21 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
 
+    // Trazendo o indice para a RAM
+    index_array index = index_to_array(index_filename, is_fixed);
+
     for (; total_filters > 0; total_filters--) {
-        fseek(data_file_ptr, 0, SEEK_SET);
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        remove_where(data_file_ptr, index_filename, filter, is_fixed);
+        remove_where(data_file_ptr, index, filter, is_fixed);
         free_record(filter);
     }
+
+    // Escrever no arquivo de indice em disco
+    array_to_index(index, is_fixed);
+
+    free_index_array(&index);
 
     fclose(data_file_ptr);
 
@@ -517,15 +524,6 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     return SUCCESS_CODE;
 }
 
-data read_update_entry(bool is_fixed) {
-    // Quantos campos serao usados para buscar o registro
-    int search_filter_amt; scanf("%d ", &search_filter_amt);
-
-    for (int i = 0; i < search_filter_amt; i++) {
-        
-    }
-}
-
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
     // Teste dos ponteiros de arquivo e sua validez
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
@@ -544,11 +542,17 @@ int update_records_command(char *data_filename, char *index_filename, int total_
         fseek(data_stream, 0, SEEK_SET);
         int total_parameters;
 
+        // Ler parametros de busca para poder buscar registros
+        // que contenham esses valores nos campos especificados 
         scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
+        // Ler parametros de atualizacao para poder alterar registros
+        // encontrados a partir dos parametros de busca acima
         scanf("%d ", &total_parameters);
-        data params = scanf_filter(total_parameters);
+
+        // Esses sao os valores atualizados que substituirao os antigos
+        data params = scanf_filter(total_parameters); 
 
         free_record(filter);
         free_record(params);

@@ -68,6 +68,6 @@ int select_table(FILE *stream, bool is_fixed);
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
 
 
-int remove_where(FILE *stream, char *index_filename, data filter, bool is_fixed);
+int remove_where(FILE *stream, index_array index, data filter, bool is_fixed);
 
 #endif //T1_TABLE_H

@@ -380,18 +380,12 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
 }
 
 
-int remove_where(FILE *stream, char *index_filename, data filter, bool is_fixed) {
+int remove_where(FILE *stream, index_array index, data filter, bool is_fixed) {
     fseek(stream, 0, SEEK_SET);
     header header_template = fread_header(stream, is_fixed);
 
-    index_array index = index_to_array(index_filename, is_fixed);
-
     int num_removed = is_fixed ? remove_fixed_filtered(stream, &index, filter, &header_template) :
                              remove_variable_filtered(stream, &index, filter, &header_template);
-
-
-    array_to_index(index, is_fixed);
-    free_index_array(&index);
 
     if (num_removed > 0) {
         header_template.num_removed += num_removed;
