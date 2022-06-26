@@ -399,25 +399,49 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     // Para escrever no arquivo de dados, configurar status como BAD_STATUS
     update_status(data_file_ptr, BAD_STATUS);
 
-    // TODO: manipular indice; configurar status para 0 para usar rb+
-    // FILE *index_file_ptr = fopen(index_filename, "rb+");
+    FILE *index_file_ptr = fopen(index_filename, "rb+");
+
+    // Teste da consistencia do arquivo de indice (ao abrir, estava com BAD_STATUS?)
+    if (getc(index_file_ptr) == '0') {
+        fclose(data_file_ptr);
+        fclose(index_file_ptr);
+
+        return ERROR_CODE;
+    }
+
+    fseek(index_file_ptr, 0, SEEK_END);
+    int size = (int) (ftell(index_file_ptr) - sizeof(char)) / (is_fixed ? 8 : 12);
+
+    // Carregar o indice para a RAM
+    fseek(index_file_ptr, 0, SEEK_SET);
+    index_node *index_array = index_to_array(index_file_ptr, size, is_fixed);
+
+    // Para escrever no arquivo de indice, configurar status como BAD_STATUS
+    update_status(index_file_ptr, BAD_STATUS);
 
     for (int i = 0; i < total_insertions; i++) {
         data curr_insertion = read_record_entry(is_fixed);
+        index_node node_to_add = {};
+        node_to_add.id = curr_insertion.id;
 
         if (is_fixed) {
+            // Topo da pilha - contem ultimo registro log. removido
             int top_rrn = file_header.top;
 
             if (top_rrn == EMPTY) {
                 fseek(data_file_ptr, 0, SEEK_END);
                 write_record(data_file_ptr, curr_insertion, is_fixed);
 
+                // RRN do reg. inserido
+                node_to_add.rrn = file_header.next_rrn;
+
                 file_header.next_rrn++;
             }
 
             else { // Usar abordagem dinamica de reuso de espacos
-                // Calculate RRN based on the generic formulae below:
-                int byte_offset = top_rrn * 97 + FIXED_HEADER;
+                int byte_offset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+
+                node_to_add.rrn = top_rrn;
 
                 // Posicionar ptr no campo de prox. registro logicamente removido
                 fseek(data_file_ptr, byte_offset + 1, SEEK_SET);
@@ -437,7 +461,12 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 
             if (top_byte_offset == EMPTY) {
                 fseek(data_file_ptr, 0, SEEK_END);
+
                 write_record(data_file_ptr, curr_insertion, is_fixed);
+
+                // Colocar o byteoffset do ultimo disponivel antes de ser atualizado,
+                // ou seja, o byteoffset em que comeca o reg. que acabou de ser escrito
+                node_to_add.byteoffset = file_header.next_byteoffset;
 
                 file_header.next_byteoffset = ftell(data_file_ptr);
             }
@@ -462,6 +491,10 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
                     fseek(data_file_ptr, top_byte_offset, SEEK_SET);
                     write_record(data_file_ptr, curr_insertion, is_fixed);
 
+                    // Coloque o byteoffset do reg. cujo espaco foi reaproveitado, 
+                    // ou seja, o byteoffset esta no antigo topo da lista de reg. log. removidos
+                    node_to_add.byteoffset = top_byte_offset;
+
                     // Preencher espaco que sobrou do registro
                     for (int i = 0; i < max_reusable_space - evaluate_record_size(curr_insertion, is_fixed); i++) {
                         fputc(GARBAGE, data_file_ptr);
@@ -473,10 +506,18 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
                     fseek(data_file_ptr, 0, SEEK_END);
                     write_record(data_file_ptr, curr_insertion, is_fixed);
 
+                    node_to_add.byteoffset = file_header.next_byteoffset;
+
                     file_header.next_byteoffset = ftell(data_file_ptr);
                 }
             }
         }
+
+        // printf("size:%d\n", size);
+
+        // TODO: Consertar essa linha, tá dando muito ruim no valgrind
+            // Nao consigo usar realloc :( 
+        // insert_index_node(index_array, size++, &node_to_add, is_fixed);
 
         free_record(curr_insertion);
     }
@@ -487,8 +528,15 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     // Para finalizar a escrita no arquivo de dados, configurar status como OK_STATUS
     update_status(data_file_ptr, OK_STATUS);
 
+    // Escrever indice no arquivo em disco
+    // array_to_index(index_file_ptr, index_array, size, is_fixed);
+
+    update_status(index_file_ptr, OK_STATUS);
+
+    free_index_array(index_array);
+
     fclose(data_file_ptr);
-    // fclose(index_file_ptr);
+    fclose(index_file_ptr);
     
     return SUCCESS_CODE;
 }

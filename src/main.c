@@ -187,6 +187,7 @@ int main() {
 
             if (status != ERROR_CODE) {
                 binarioNaTela(data_path);
+                binarioNaTela(index_path);
             }
 
             else {

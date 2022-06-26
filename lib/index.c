@@ -18,6 +18,11 @@ int comp (const void * elem1, const void * elem2)
     return 0;
 }
 
+int compare_indexes(index_node first, index_node second) {
+    if (first.id > second.id)
+        return 1;
+    return -(first.id < second.id);
+}
 
 // TODO: Add comments
 void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
@@ -73,6 +78,48 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
     update_status(index_stream, OK_STATUS);
 }
 
+void insert_index_node(index_node *array, int size, index_node *node_to_add, bool is_fixed) {
+    printf("printando os nos do reg. de indice:\n");
+    for (int i = 0; i < size; i++) {
+        printf("id: %d\n", array[i].id);
+        printf("byteoff: %ld\n", array[i].byteoffset);
+    }
+
+
+    // Alocar espaco para novo elemento no indice apos a insercao de reg. no arq. de dados
+        array = (index_node *) realloc(array, (size + 1) * sizeof(index_node));
+
+    // Inserir ordenado no indice array
+    int insertion_position = 0;
+
+    // Achar posicao correta
+    printf("size: %d\n", size);
+    printf("id do novo node: %d\n", node_to_add->id);
+    printf("array[insert-pos].id:%d\n", array[insertion_position].id);
+    while (insertion_position < size && node_to_add->id > array[insertion_position].id) {
+        insertion_position++;
+        printf("insertion pos:%d\n", insertion_position);
+    }
+
+    // "shiftada" para a direita para abrir espaco para novo no de indice
+    // for (int i = size - 1; i >= insertion_position; i--) {
+        // printf("array[i+1].id=%d\n", array[i + 1].id);
+        // printf("array[i].id=%d\n", array[i].id);
+        // array[i] = array[i - 1];
+        // break;
+    // }
+
+    // array[insertion_position].id = node_to_add->id;
+
+    // if (is_fixed) {
+        // array[insertion_position].rrn = node_to_add->rrn;
+        // printf("teste3\n");
+    // }
+
+    // else {
+        // array[insertion_position].byteoffset = node_to_add->byteoffset;
+    // }
+}
 
 void free_index_array(index_node *array) {
     free(array);
@@ -113,13 +160,6 @@ void array_to_index(FILE *stream, index_node *array, int size, bool is_fixed) {
             fwrite(&array[i].byteoffset, sizeof(long int), 1, stream);
         }
     }
-}
-
-
-int compare_indexes(index_node first, index_node second) {
-    if (first.id > second.id)
-        return 1;
-    return -(first.id < second.id);
 }
 
 

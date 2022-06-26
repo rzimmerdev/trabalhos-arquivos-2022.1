@@ -15,7 +15,9 @@ typedef struct Index_t {
 
 void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed);
 
-void free_index(index_node *array);
+void insert_index_node(index_node *array, int size, index_node *node_to_add, bool is_fixed);
+
+void free_index_array(index_node *array);
 
 index_node *index_to_array(FILE *stream, int size, bool is_fixed);
 void array_to_index(FILE *stream, index_node *array, int size, bool is_fixed);
