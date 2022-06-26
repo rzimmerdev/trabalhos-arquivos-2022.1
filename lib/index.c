@@ -155,7 +155,7 @@ void array_to_index(index_array index, bool is_fixed) {
             fwrite(&array[i].byteoffset, sizeof(long int), 1, stream);
         }
     }
-
+    update_status(stream, OK_STATUS);
     fclose(stream);
 }
 
@@ -193,12 +193,15 @@ void remove_from_index_array(index_array *index, int id) {
     index_node to_remove = {.id = id};
     int idx = binary_search(*index, to_remove, 0, index->size - 1);
 
-    memmove(&(index->array[idx]), &(index->array[idx + 1]), (--index->size - idx) * sizeof(index_node));
+    index->size--;
+    index->array = realloc(index->array, sizeof(index_node) * index->size);
+    memmove(&(index->array[idx]), &(index->array[idx + 1]), (index->size - idx) * sizeof(index_node));
 }
 
 
 void insert_into_index_array(index_array *index, index_node to_insert) {
     int idx = binary_search(*index, to_insert, 0, index->size - 1);
+
     index->size++;
     index->array = realloc(index->array, sizeof(index_node) * index->size);
     memmove(&(index->array[idx + 1]), &(index->array[idx]), (index->size - idx - 1) * sizeof(index_node));
