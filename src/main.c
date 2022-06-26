@@ -175,13 +175,16 @@ int main() {
 
             int status = insert_records_command(data_path, index_path, total_insertions, filetype);
 
+            if (status != ERROR_CODE) {
+                binarioNaTela(data_filename);
+            }
+
+            else {
+                printf("Falha no processamento do arquivo.");
+            }
+
             free(data_filename);
             free(index_filename);
-
-            if (status == ERROR_CODE)
-                printf("Falha no processamento do arquivo.");
-            else if (status == NOT_FOUND)
-                printf("Registro inexistente.\n");
 
             break;
         }

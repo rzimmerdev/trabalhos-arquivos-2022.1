@@ -284,9 +284,209 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        remove_where(data_file_ptr, filter, is_fixed);
+        // remove_where(data_file_ptr, filter, is_fixed);
         free_record(filter);
     }
+
+    fclose(data_file_ptr);
+    fclose(index_file_ptr);
+
+    return SUCCESS_CODE;
+}
+
+data read_record_entry() {
+    data entry_record = {};
+
+    entry_record.removed = NOT_REMOVED;
+    
+    entry_record.next = EMPTY;
+    entry_record.big_next = EMPTY;
+
+    scanf(" %d", &entry_record.id);
+
+    char *year = scan_word_quoted();
+
+    if (strlen(year) > 0) {
+        entry_record.year = atoi(year);
+    }
+
+    else {
+        entry_record.year = EMPTY;
+    }
+
+    free(year);
+
+    char *total = scan_word_quoted();
+
+    if (strlen(total) > 0) {
+        entry_record.total = atoi(total);
+    }
+
+    else {
+        entry_record.total = EMPTY;
+    }
+
+    free(total);
+
+    char *state = scan_word_quoted();
+
+    if (strlen(state) > 0) {
+        entry_record.state[0] = state[0];
+        entry_record.state[1] = state[1];
+    }
+
+    else {
+        entry_record.state[0] = GARBAGE;
+        entry_record.state[1] = GARBAGE;
+    }
+
+    free(state);
+
+    entry_record.city = scan_word_quoted();
+
+    entry_record.city_size = strlen(entry_record.city);
+    entry_record.brand = scan_word_quoted();
+    entry_record.brand_size = strlen(entry_record.brand);
+    entry_record.model = scan_word_quoted();
+    entry_record.model_size = strlen(entry_record.model);
+
+    return entry_record;
+}
+
+// Para registro de tipo 2
+int evaluate_record_size(data record) {
+    int size = 22; // Tamanho considerando apenas informacoes de campos de tamanho fixo
+
+    if (strlen(record.city)) {
+        size += 5 + strlen(record.city); // Somar 5 para tamanho + codigo do campo variavel
+    }
+
+    if (strlen(record.brand)) {
+        size += 5 + strlen(record.brand);
+    }
+
+    if (strlen(record.model)) {
+        size += 5 + strlen(record.model);
+    }
+
+    return size;
+}
+
+int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
+    // Teste dos ponteiros de arquivo e sua validez
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+        return ERROR_CODE;
+    FILE *data_file_ptr = fopen(data_filename, "rb+");
+
+    // Teste da consistencia do arquivo de dados (ao abrir, estava com BAD_STATUS?)
+    if (getc(data_file_ptr) == '0') {
+        fclose(data_file_ptr);
+        
+        return ERROR_CODE;
+    }
+
+    header file_header = fread_header(data_file_ptr, is_fixed);
+
+    // Para escrever no arquivo de dados, configurar status como BAD_STATUS
+    update_status(data_file_ptr, BAD_STATUS);
+
+    // TODO: manipular indice; configurar status para 0 para usar rb+
+    // FILE *index_file_ptr = fopen(index_filename, "rb+");
+
+    for (int i = 0; i < total_insertions; i++) {
+        data curr_insertion = read_record_entry();
+
+        if (is_fixed) {
+            int top_rrn = file_header.top;
+
+            if (top_rrn == EMPTY) {
+                fseek(data_file_ptr, 0, SEEK_END);
+                write_record(data_file_ptr, curr_insertion, is_fixed);
+
+                file_header.next_rrn++;
+            }
+
+            else { // Usar abordagem dinamica de reuso de espacos
+                // Calculate RRN based on the generic formulae below:
+                int byte_offset = top_rrn * 97 + FIXED_HEADER;
+
+                // Posicionar ptr no campo de prox. registro logicamente removido
+                fseek(data_file_ptr, byte_offset + 1, SEEK_SET);
+
+                // Atualizar topo da pilha de removidos e sua qtd
+                fread(&file_header.top, sizeof(int), 1, data_file_ptr);
+                file_header.next_removed--;
+
+                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
+                fseek(data_file_ptr, byte_offset, SEEK_SET);
+                write_record(data_file_ptr, curr_insertion, is_fixed);
+            }
+        }
+
+        else {
+            long int top_byte_offset = file_header.big_top;
+
+            if (top_byte_offset == EMPTY) {
+                fseek(data_file_ptr, 0, SEEK_END);
+                write_record(data_file_ptr, curr_insertion, is_fixed);
+
+                file_header.next_byteoffset = ftell(data_file_ptr);
+            }
+
+            else { // Tentar reutilizar espacos de registro log. removido, se couber o novo reg.
+                // Posicionar ptr no campo de tamanho do reg. removido.
+                fseek(data_file_ptr, top_byte_offset + 1, SEEK_SET);
+
+                int max_reusable_space = 0;
+
+                fread(&max_reusable_space, sizeof(int), 1, data_file_ptr);
+
+                // Atualizar topo da lista de removidos e sua qtd
+                fread(&file_header.big_top, sizeof(long int), 1, data_file_ptr);
+                file_header.next_removed--;
+                
+                // Se couber no espaco de worst fit, reutilize-o
+                if (evaluate_record_size(curr_insertion) <= max_reusable_space) {
+                    curr_insertion.size = max_reusable_space;
+
+                    // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
+                    fseek(data_file_ptr, top_byte_offset, SEEK_SET);
+                    write_record(data_file_ptr, curr_insertion, is_fixed);
+
+                    // Preencher espaco que sobrou do registro
+                    for (int i = 0; i < max_reusable_space - evaluate_record_size(curr_insertion); i++) {
+                        fputc(GARBAGE, data_file_ptr);
+                    }
+                }
+
+                else {
+                    // Nao coube no maior espaco disponivel para reutilizar; inserir no fim.
+                    fseek(data_file_ptr, 0, SEEK_END);
+                    write_record(data_file_ptr, curr_insertion, is_fixed);
+
+                    file_header.next_byteoffset = ftell(data_file_ptr);
+                }
+            }
+        }
+    }
+
+    // Escrever cabecalho no arquivo em disco
+    write_header(data_file_ptr, file_header, is_fixed, 0);
+
+    // Para finalizar a escrita no arquivo de dados, configurar status como OK_STATUS
+    update_status(data_file_ptr, OK_STATUS);
+
+    fclose(data_file_ptr);
+    // fclose(index_file_ptr);
+    
+    return SUCCESS_CODE;
+}
+
+int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+        return ERROR_CODE;
+    FILE *data_file_ptr = fopen(data_filename, "rb+");
+    FILE *index_file_ptr = fopen(index_filename, "rb+");
 
     fclose(data_file_ptr);
     fclose(index_file_ptr);
