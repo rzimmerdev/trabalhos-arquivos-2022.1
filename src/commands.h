@@ -78,4 +78,9 @@ int create_index_command(char *data_filename, char *index_filename, bool is_fixe
 
 int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed);
 
+
+int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed);
+
+int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed);
+
 #endif //COMMANDS_H
