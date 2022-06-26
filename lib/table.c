@@ -246,7 +246,7 @@ int verify_record(data record, data filter, bool is_fixed) {
 void remove_fixed(FILE *stream, index_array index, data record, int rrn, header *template) {
     long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
 
-    remove_from_index_array(index, record.id);
+    remove_from_index_array(&index, record.id);
     remove_record(stream, offset, &(template->top), true);
 
     template->top = rrn;
@@ -299,7 +299,7 @@ void remove_variable(FILE *stream, index_array index, data record, long int byte
     long int parent_offset = template->big_top;
 
     if (parent_offset == -1) {
-        remove_from_index_array(index, record.id);
+        remove_from_index_array(&index, record.id);
         remove_record(stream, byteoffset, &(template->big_top), false);
 
         template->big_top = byteoffset;
@@ -312,7 +312,7 @@ void remove_variable(FILE *stream, index_array index, data record, long int byte
     data current = fread_record(stream, false);
 
     if (current.size < record.size) {
-        remove_from_index_array(index, record.id);
+        remove_from_index_array(&index, record.id);
         remove_record(stream, byteoffset, &(template->big_top), false);
 
         template->big_top = byteoffset;
@@ -337,7 +337,7 @@ void remove_variable(FILE *stream, index_array index, data record, long int byte
 
     fseek(stream, parent_offset + sizeof(char) + sizeof(int), SEEK_SET);
     fwrite(&byteoffset, sizeof(long int), 1, stream);
-    remove_from_index_array(index, record.id);
+    remove_from_index_array(&index, record.id);
     remove_record(stream, byteoffset, &current_offset, false);
     free_record(record);
 }
