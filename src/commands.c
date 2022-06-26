@@ -477,6 +477,8 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
                 }
             }
         }
+
+        free_record(curr_insertion);
     }
 
     // Escrever cabecalho no arquivo em disco

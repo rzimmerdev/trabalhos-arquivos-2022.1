@@ -166,7 +166,7 @@ int main() {
             break;
         }
 
-        /*case INSERT_RECORDS: {
+        case INSERT_RECORDS: {
             char *data_filename = scan_word();
             char *index_filename = scan_word();
             
@@ -223,7 +223,7 @@ int main() {
                 printf("Registro inexistente.\n");
 
             break;
-        }*/
+        }
     }
 
     return EXIT_SUCCESS;
