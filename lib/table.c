@@ -150,7 +150,7 @@ int select_table(FILE *stream, bool is_fixed) {
 }
 
 
-bool compare_record(data template, data record, bool is_fixed) {
+bool compare_record(data template, data record) {
     // Verify if template filter has any of the following fixed or variable inputs selected,
     // and if it exists, compare it to its counterpart in the current record (if it's non-empty in the first place)
 
@@ -229,13 +229,13 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
 }
 
 
-int verify_record(data record, data filter, bool is_fixed) {
+int verify_record(data record, data filter) {
     if (record.removed == IS_REMOVED) {
         free_record(record);
         return ERROR_CODE;
     }
 
-    if (!compare_record(filter, record, is_fixed)) {
+    if (!compare_record(filter, record)) {
         free_record(record);
         return ERROR_CODE;
     }
@@ -267,7 +267,7 @@ int remove_fixed_filtered(FILE *stream, index_array *index, data filter, header 
         fseek(stream, byteoffset, SEEK_SET);
 
         data record = fread_record(stream, true);
-        int result = verify_record(record, filter, true);
+        int result = verify_record(record, filter);
         if (result == ERROR_CODE)
             return ERROR_CODE;
 
@@ -282,7 +282,7 @@ int remove_fixed_filtered(FILE *stream, index_array *index, data filter, header 
             fseek(stream, byteoffset, SEEK_SET);
 
             data record = fread_record(stream, true);
-            int status = verify_record(record, filter, true);
+            int status = verify_record(record, filter);
             if (status == ERROR_CODE)
                 continue;
 
@@ -351,7 +351,7 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
         fseek(stream, byteoffset, SEEK_SET);
         data record = fread_record(stream, false);
 
-        int result = verify_record(record, filter, true);
+        int result = verify_record(record, filter);
         if (result == ERROR_CODE)
             return ERROR_CODE;
 
@@ -364,7 +364,7 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
             fseek(stream, byteoffset, SEEK_SET);
             data record = fread_record(stream, false);
 
-            int status = verify_record(record, filter, false);
+            int status = verify_record(record, filter);
             if (status == ERROR_CODE) {
                 byteoffset += record.size + 5;
                 continue;
@@ -396,6 +396,7 @@ int remove_where(FILE *stream, char *index_filename, data filter, bool is_fixed)
     if (num_removed > 0) {
         header_template.num_removed += num_removed;
     }
+
     header_template.status[0] = OK_STATUS[0];
     write_header(stream, header_template, is_fixed, true);
     return 1;
