@@ -33,6 +33,9 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
 void update_status(FILE *stream, char STATUS[]);
 
 
+char read_status(FILE *stream);
+
+
 // TODO: Description
 header fread_header(FILE *stream, bool is_fixed);
 

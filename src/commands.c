@@ -256,18 +256,30 @@ int create_index_command(char *data_filename, char *index_filename, bool is_fixe
 
 
 int verify_stream(char *data_filename, char *index_filename) {
-    FILE *data_file_ptr = fopen(data_filename, "rb+");
+    FILE *data_stream = fopen(data_filename, "rb+");
 
-    if (data_file_ptr == NULL)
+    if (data_stream == NULL)
         return ERROR_CODE;
 
-    FILE *index_file_ptr = fopen(index_filename, "rb+");
+    FILE *index_stream = fopen(index_filename, "rb+");
 
-    if (index_file_ptr == NULL)
+    if (index_stream == NULL) {
+        fclose(data_stream);
+        return ERROR_CODE;
+    }
+
+    int data_status = (read_status(data_stream) == OK_STATUS[0]);
+    int index_status = (read_status(index_stream) == OK_STATUS[0]);
+
+    fclose(data_stream);
+    fclose(index_stream);
+
+    if (data_status != SUCCESS_CODE)
         return ERROR_CODE;
 
-    fclose(data_file_ptr);
-    fclose(index_file_ptr);
+    if (index_status != SUCCESS_CODE)
+        return ERROR_CODE;
+
     return SUCCESS_CODE;
 }
 
@@ -276,6 +288,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
 
     if (verify_stream(data_filename, index_filename) == ERROR_CODE)
         return ERROR_CODE;
+
     FILE *data_file_ptr = fopen(data_filename, "rb+");
 
     for (; total_filters > 0; total_filters--) {
@@ -376,60 +389,30 @@ data read_record_entry(bool is_fixed) {
     return entry_record;
 }
 
-int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
-    // Teste dos ponteiros de arquivo e sua validez
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE) {
 
+int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
+    // Teste dos ponteiros de arquivo e sua validez, assim como a consistencia do arquivo para qual apontam.
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
         return ERROR_CODE;
-    }
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
-
-    // Teste da consistencia do arquivo de dados (ao abrir, estava com BAD_STATUS?)
-    if (getc(data_file_ptr) == '0') {
-        fclose(data_file_ptr);
-
-        return ERROR_CODE;
-    }
-
     header file_header = fread_header(data_file_ptr, is_fixed);
-
-    // Para escrever no arquivo de dados, configurar status como BAD_STATUS
-    update_status(data_file_ptr, BAD_STATUS);
-
-    FILE *index_file_ptr = fopen(index_filename, "rb+");
-
-    // Teste da consistencia do arquivo de indice (ao abrir, estava com BAD_STATUS?)
-    if (getc(index_file_ptr) == '0') {
-        fclose(data_file_ptr);
-        fclose(index_file_ptr);
-
-        return ERROR_CODE;
-    }
-
-    fseek(index_file_ptr, 0, SEEK_END);
-    int size = (int) (ftell(index_file_ptr) - sizeof(char)) / (is_fixed ? 8 : 12);
-
     // Carregar o indice para a RAM
-    fseek(index_file_ptr, 0, SEEK_SET);
-    index_node *index_array = index_to_array(index_file_ptr, size, is_fixed);
+    index_array index = index_to_array(index_filename, is_fixed);
 
-    // Para escrever no arquivo de indice, configurar status como BAD_STATUS
-    update_status(index_file_ptr, BAD_STATUS);
-
+    // Ler entrada no formato da func. 7
     for (int i = 0; i < total_insertions; i++) {
-        // Ler entrada no formato da func. 7
         data curr_insertion = read_record_entry(is_fixed);
 
-        index_node node_to_add = {};
-        node_to_add.id = curr_insertion.id;
+        index_node node_to_add = {.id = curr_insertion.id, .rrn = EMPTY, .byteoffset = EMPTY};
 
         if (is_fixed) {
             // Topo da pilha - contem ultimo registro log. removido
             int top_rrn = file_header.top;
 
             if (top_rrn == EMPTY) {
-                fseek(data_file_ptr, 0, SEEK_END);
+                int byteoffset = file_header.next_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+                fseek(data_file_ptr, byteoffset, SEEK_SET);
                 write_record(data_file_ptr, curr_insertion, is_fixed);
 
                 // RRN do reg. inserido
@@ -439,19 +422,19 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
             }
 
             else { // Usar abordagem dinamica de reuso de espacos
-                int byte_offset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+                int byteoffset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
 
                 node_to_add.rrn = top_rrn;
 
                 // Posicionar ptr no campo de prox. registro logicamente removido
-                fseek(data_file_ptr, byte_offset + 1, SEEK_SET);
+                fseek(data_file_ptr, byteoffset + 1, SEEK_SET);
 
                 // Atualizar topo da pilha de removidos e sua qtd
                 fread(&file_header.top, sizeof(int), 1, data_file_ptr);
                 file_header.num_removed--;
 
-                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
-                fseek(data_file_ptr, byte_offset, SEEK_SET);
+                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado
+                fseek(data_file_ptr, byteoffset, SEEK_SET);
                 write_record(data_file_ptr, curr_insertion, is_fixed);
             }
         }
@@ -460,7 +443,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
             long int top_byte_offset = file_header.big_top;
 
             if (top_byte_offset == EMPTY) {
-                fseek(data_file_ptr, 0, SEEK_END);
+                fseek(data_file_ptr, file_header.next_byteoffset, SEEK_SET);
 
                 write_record(data_file_ptr, curr_insertion, is_fixed);
 
@@ -473,7 +456,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 
             else { // Tentar reutilizar espacos de registro log. removido, se couber o novo reg.
                 // Posicionar ptr no campo de tamanho do reg. removido.
-                fseek(data_file_ptr, top_byte_offset + 1, SEEK_SET);
+                fseek(data_file_ptr, top_byte_offset + sizeof(char), SEEK_SET);
 
                 int max_reusable_space = 0;
 
@@ -513,11 +496,9 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
             }
         }
 
-        // printf("size:%d\n", size);
-
         // TODO: Consertar essa linha, tá dando muito ruim no valgrind
             // Nao consigo usar realloc :( 
-        // insert_index_node(index_array, size++, &node_to_add, is_fixed);
+        insert_into_index_array(&index, node_to_add);
 
         free_record(curr_insertion);
     }
@@ -531,12 +512,8 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     // Escrever indice no arquivo em disco
     // array_to_index(index_file_ptr, index_array, size, is_fixed);
 
-    update_status(index_file_ptr, OK_STATUS);
-
-    free_index_array(index_array);
-
     fclose(data_file_ptr);
-    fclose(index_file_ptr);
+    free_index_array(index);
     
     return SUCCESS_CODE;
 }
@@ -552,10 +529,8 @@ data read_update_entry(bool is_fixed) {
 
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
     // Teste dos ponteiros de arquivo e sua validez
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE) {
-
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
         return ERROR_CODE;
-    }
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
 
@@ -581,15 +556,8 @@ int update_records_command(char *data_filename, char *index_filename, int total_
         return ERROR_CODE;
     }
 
-    fseek(index_file_ptr, 0, SEEK_END);
-    int size = (int) (ftell(index_file_ptr) - sizeof(char)) / (is_fixed ? 8 : 12);
-
     // Carregar o indice para a RAM
-    fseek(index_file_ptr, 0, SEEK_SET);
-    index_node *index_array = index_to_array(index_file_ptr, size, is_fixed);
-
-    // Para escrever no arquivo de indice, configurar status como BAD_STATUS
-    update_status(index_file_ptr, BAD_STATUS);
+    index_array index = index_to_array(index_filename, is_fixed);
 
     for (int i = 0; i < total_updates; i++) {
         // Ler entrada no formato da func. 8
@@ -605,9 +573,7 @@ int update_records_command(char *data_filename, char *index_filename, int total_
     // Escrever indice no arquivo em disco
     // array_to_index(index_file_ptr, index_array, size, is_fixed);
 
-    update_status(index_file_ptr, OK_STATUS);
-
-    free_index_array(index_array);
+    free_index_array(index);
 
     fclose(data_file_ptr);
     fclose(index_file_ptr);

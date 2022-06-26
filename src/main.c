@@ -189,7 +189,6 @@ int main() {
                 binarioNaTela(data_path);
                 binarioNaTela(index_path);
             }
-
             else {
                 printf("Falha no processamento do arquivo.");
             }

@@ -1,5 +1,5 @@
 dependencies = lib/utils.o lib/record.o lib/table.o lib/index.o src/csv_utils.o src/commands.o
-individual_case = 6
+individual_case = 9
 
 cases_input = cases2/in
 cases_output = cases2/out
@@ -11,7 +11,7 @@ clean:
 	rm lib/*.o src/*.o main saida.txt comparison.txt index.bin
 
 run: src/main.c
-	./bin/main
+	./main
 
 copy: all
 	cp files2/* bin/ -r

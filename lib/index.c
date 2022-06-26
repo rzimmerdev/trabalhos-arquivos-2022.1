@@ -24,6 +24,7 @@ int compare_indexes(index_node first, index_node second) {
     return -(first.id < second.id);
 }
 
+
 // TODO: Add comments
 void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
 
@@ -78,13 +79,13 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
     update_status(index_stream, OK_STATUS);
 }
 
+
 void insert_index_node(index_node *array, int size, index_node *node_to_add, bool is_fixed) {
     printf("printando os nos do reg. de indice:\n");
     for (int i = 0; i < size; i++) {
         printf("id: %d\n", array[i].id);
         printf("byteoff: %ld\n", array[i].byteoffset);
     }
-
 
     // Alocar espaco para novo elemento no indice apos a insercao de reg. no arq. de dados
         array = (index_node *) realloc(array, (size + 1) * sizeof(index_node));
@@ -100,34 +101,22 @@ void insert_index_node(index_node *array, int size, index_node *node_to_add, boo
         insertion_position++;
         printf("insertion pos:%d\n", insertion_position);
     }
-
-    // "shiftada" para a direita para abrir espaco para novo no de indice
-    // for (int i = size - 1; i >= insertion_position; i--) {
-        // printf("array[i+1].id=%d\n", array[i + 1].id);
-        // printf("array[i].id=%d\n", array[i].id);
-        // array[i] = array[i - 1];
-        // break;
-    // }
-
-    // array[insertion_position].id = node_to_add->id;
-
-    // if (is_fixed) {
-        // array[insertion_position].rrn = node_to_add->rrn;
-        // printf("teste3\n");
-    // }
-
-    // else {
-        // array[insertion_position].byteoffset = node_to_add->byteoffset;
-    // }
 }
 
-void free_index_array(index_node *array) {
-    free(array);
+
+void free_index_array(index_array index) {
+    free(index.array);
 }
 
-index_node *index_to_array(FILE *stream, int size, bool is_fixed) {
+
+index_array index_to_array(char *filename, bool is_fixed) {
+    FILE *stream = fopen(filename, "rb");
+    fseek(stream, 0, SEEK_END);
+    int size = (ftell(stream) - sizeof(char)) / (is_fixed ? 8 : 12);
+    fseek(stream, 1, SEEK_SET);
 
     index_node *array = malloc(sizeof(index_node) * size);
+    index_array index = {.array = array, .size = size, .filename = filename};
 
     if (is_fixed) {
         for (int i = 0; i < size; i++) {
@@ -142,87 +131,77 @@ index_node *index_to_array(FILE *stream, int size, bool is_fixed) {
         }
     }
 
-    return array;
+    fclose(stream);
+
+    return index;
 }
 
 
-void array_to_index(FILE *stream, index_node *array, int size, bool is_fixed) {
+void array_to_index(index_array index, bool is_fixed) {
+    FILE *stream = fopen(index.filename, "wb");
+
+    index_node *array = index.array;
+
     update_status(stream, BAD_STATUS);
     if (is_fixed) {
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < index.size; i++) {
             fwrite(&array[i].id, sizeof(int), 1, stream);
             fwrite(&array[i].rrn, sizeof(int), 1, stream);
         }
     }
     else {
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < index.size; i++) {
             fwrite(&array[i].id, sizeof(int), 1, stream);
             fwrite(&array[i].byteoffset, sizeof(long int), 1, stream);
         }
     }
+
+    fclose(stream);
 }
 
 
-int binary_search(index_node *array, index_node lookup, int offset, int top) {
+int binary_search(index_array index, index_node lookup, int offset, int top) {
     int middle = (offset + top) / 2;
 
     if (offset > top)
-        return -1;
-
-    if (compare_indexes(array[middle], lookup) == 0)
         return middle;
-    else if (compare_indexes(array[middle], lookup) == -1)
-        return binary_search(array, lookup, middle + 1, top);
+
+    if (compare_indexes(index.array[middle], lookup) == 0)
+        return middle;
+    else if (compare_indexes(index.array[middle], lookup) == -1)
+        return binary_search(index, lookup, middle + 1, top);
     else
-        return binary_search(array, lookup, offset, middle - 1);
+        return binary_search(index, lookup, offset, middle - 1);
 }
 
 
-index_node find_by_id(char *index_filename, int id, bool is_fixed) {
-    FILE *stream = fopen(index_filename, "rb+");
-    fseek(stream, 0, SEEK_END);
-    int size = (int) (ftell(stream) - sizeof(char)) / (is_fixed ? 8 : 12);
-    fseek(stream, 1, SEEK_SET);
-
-    index_node *array = index_to_array(stream, size, is_fixed);
-    fclose(stream);
-
+index_node find_by_id(index_array index, int id) {
     index_node to_find = {.id = id};
-    int idx = binary_search(array, to_find, 0, size - 1);
+    int idx = binary_search(index, to_find, 0, index.size - 1);
 
     if (idx == -1) {
-        free_index_array(array);
-
         index_node empty = {.id = id, .rrn = -1, .byteoffset = -1};
-
         return empty;
     }
 
-    index_node to_return = array[idx];
-    free_index_array(array);
+    index_node to_return = index.array[idx];
     return to_return;
 }
 
 
-index_node remove_index(char *index_filename, int id, bool is_fixed) {
-    FILE *stream = fopen(index_filename, "rb");
+void remove_from_index_array(index_array *index, int id) {
+    index_node to_remove = {.id = id};
+    int idx = binary_search(*index, to_remove, 0, index->size - 1);
 
-    fseek(stream, 0, SEEK_END);
-    int size = (ftell(stream) - sizeof(char)) / (is_fixed ? 8 : 12);
-    fseek(stream, 1, SEEK_SET);
-    index_node *array = index_to_array(stream, size, is_fixed);
-    index_node to_find = {.id = id};
-    int idx = binary_search(array, to_find, 0, size - 1);
-    index_node to_return = array[idx];
-    memmove(&(array[idx]), &(array[idx + 1]), (--size - idx) * sizeof(index_node));
-    fclose(stream);
+    memmove(&(index->array[idx]), &(index->array[idx + 1]), (--index->size - idx) * sizeof(index_node));
+}
 
-    stream = fopen(index_filename, "wb");
 
-    array_to_index(stream, array, size, is_fixed);
-    free_index_array(array);
+void insert_into_index_array(index_array *index, index_node to_insert) {
+    int idx = binary_search(*index, to_insert, 0, index->size - 1);
+    index->size++;
+    index->array = realloc(index->array, sizeof(index_node) * index->size);
+    memmove(&(index->array[idx + 1]), &(index->array[idx]), (index->size - idx - 1) * sizeof(index_node));
 
-    update_status(stream, OK_STATUS);
-    fclose(stream);
-    return to_return;
+    index->array[idx + 1] = to_insert;
 }
