@@ -237,29 +237,36 @@ int select_rrn_command(char *bin_filename, int rrn) {
 }
 
 
-int verify_stream(char *data_filename, char *index_filename) {
+int verify_stream(char *data_filename, char *index_filename, bool verify_index) {
     FILE *data_stream = fopen(data_filename, "rb+");
 
     if (data_stream == NULL)
         return ERROR_CODE;
 
-    FILE *index_stream = fopen(index_filename, "rb+");
+    FILE *index_stream;
+    if (verify_index)
+        index_stream = fopen(index_filename, "rb");
 
-    if (index_stream == NULL) {
+    if (verify_index && index_stream == NULL) {
         fclose(data_stream);
         return ERROR_CODE;
     }
 
     int data_status = (read_status(data_stream) == OK_STATUS[0]);
-    int index_status = (read_status(index_stream) == OK_STATUS[0]);
+
+    int index_status;
+    if (verify_index)
+        index_status = (read_status(index_stream) == OK_STATUS[0]);
 
     fclose(data_stream);
-    fclose(index_stream);
+
+    if (verify_index)
+        fclose(index_stream);
 
     if (data_status != SUCCESS_CODE)
         return ERROR_CODE;
 
-    if (index_status != SUCCESS_CODE)
+    if (verify_index && index_status != SUCCESS_CODE)
         return ERROR_CODE;
 
     return SUCCESS_CODE;
@@ -268,9 +275,8 @@ int verify_stream(char *data_filename, char *index_filename) {
 
 int create_index_command(char *data_filename, char *index_filename, bool is_fixed) {
 
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+    if (verify_stream(data_filename, index_filename, false) == ERROR_CODE)
         return ERROR_CODE;
-
     FILE *original_file_ptr = fopen(data_filename, "rb");
     FILE *index_file_ptr = fopen(index_filename, "wb");
 
@@ -282,7 +288,7 @@ int create_index_command(char *data_filename, char *index_filename, bool is_fixe
 
 int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed) {
 
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+    if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
@@ -388,7 +394,7 @@ data read_record_entry(bool is_fixed) {
 
 int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
     // Teste dos ponteiros de arquivo e sua validez, assim como a consistencia do arquivo para qual apontam.
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+    if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
@@ -506,7 +512,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     array_to_index(index, is_fixed);
 
     fclose(data_file_ptr);
-    free_index_array(index);
+    free_index_array(&index);
     
     return SUCCESS_CODE;
 }
@@ -522,7 +528,7 @@ data read_update_entry(bool is_fixed) {
 
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
     // Teste dos ponteiros de arquivo e sua validez
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+    if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
@@ -566,7 +572,7 @@ int update_records_command(char *data_filename, char *index_filename, int total_
     // Escrever indice no arquivo em disco
     // array_to_index(index_file_ptr, index_array, size, is_fixed);
 
-    free_index_array(index);
+    free_index_array(&index);
 
     fclose(data_file_ptr);
     fclose(index_file_ptr);

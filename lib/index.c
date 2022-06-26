@@ -80,32 +80,8 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
 }
 
 
-void insert_index_node(index_node *array, int size, index_node *node_to_add, bool is_fixed) {
-    printf("printando os nos do reg. de indice:\n");
-    for (int i = 0; i < size; i++) {
-        printf("id: %d\n", array[i].id);
-        printf("byteoff: %ld\n", array[i].byteoffset);
-    }
-
-    // Alocar espaco para novo elemento no indice apos a insercao de reg. no arq. de dados
-        array = (index_node *) realloc(array, (size + 1) * sizeof(index_node));
-
-    // Inserir ordenado no indice array
-    int insertion_position = 0;
-
-    // Achar posicao correta
-    printf("size: %d\n", size);
-    printf("id do novo node: %d\n", node_to_add->id);
-    printf("array[insert-pos].id:%d\n", array[insertion_position].id);
-    while (insertion_position < size && node_to_add->id > array[insertion_position].id) {
-        insertion_position++;
-        printf("insertion pos:%d\n", insertion_position);
-    }
-}
-
-
-void free_index_array(index_array index) {
-    free(index.array);
+void free_index_array(index_array *index) {
+    free(index->array);
 }
 
 
@@ -194,8 +170,8 @@ void remove_from_index_array(index_array *index, int id) {
     int idx = binary_search(*index, to_remove, 0, index->size - 1);
 
     index->size--;
-    index->array = realloc(index->array, sizeof(index_node) * index->size);
     memmove(&(index->array[idx]), &(index->array[idx + 1]), (index->size - idx) * sizeof(index_node));
+    index->array = realloc(index->array, sizeof(index_node) * index->size);
 }
 
 

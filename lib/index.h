@@ -27,7 +27,7 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed);
 
 void insert_index_node(index_node *array, int size, index_node *node_to_add, bool is_fixed);
 
-void free_index_array(index_array index);
+void free_index_array(index_array *index);
 
 index_array index_to_array(char *filename, bool is_fixed);
 void array_to_index(index_array index, bool is_fixed);
