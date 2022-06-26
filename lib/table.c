@@ -154,20 +154,20 @@ bool compare_record(data template, data record) {
     // Verify if template filter has any of the following fixed or variable inputs selected,
     // and if it exists, compare it to its counterpart in the current record (if it's non-empty in the first place)
 
-    if ((template.year != EMPTY && (record.year == -1 || template.year != record.year)) ||
-        (template.id != EMPTY && (record.id == -1 || template.id != record.id)) ||
-        (template.total != EMPTY && (record.total == -1 || template.total != record.total))) {
+    if ((template.year != EMPTY_FILTER && (template.year != record.year)) ||
+        (template.id != EMPTY_FILTER && (template.id != record.id)) ||
+        (template.total != EMPTY_FILTER && (template.total != record.total))) {
 
-            // Free record and continue iterating otherwise (in which case given filter doesn't match current record).
+        // Free record and continue iterating otherwise (in which case given filter doesn't match current record).
         return false;
     }
 
-    if ((template.city && !record.city) || (template.city && record.city && strcmp(template.city, record.city)) ||
-        (template.brand && !record.brand) || (template.brand && record.brand && strcmp(template.brand, record.brand)) ||
-        (template.model && !record.model) || (template.model && record.model && strcmp(template.model, record.model)) ||
-        (strlen(template.state) == 2 && !record.state) || (strlen(template.state) == 2 && strcmp(template.state, record.state))) {
+    if ((template.city && !record.city && strcmp(template.city, "") != 0) || (template.city && record.city && strcmp(template.city, record.city)) ||
+        (template.brand && !record.brand && strcmp(template.brand, "") != 0) || (template.brand && record.brand && strcmp(template.brand, record.brand)) ||
+        (template.model && !record.model && strcmp(template.model, "") != 0) || (template.model && record.model && strcmp(template.model, record.model)) ||
+        (template.state[0] != EMPTY_FILTER && strcmp(template.state, record.state))) {
 
-            // Free record and continue iterating otherwise. (in which case given filter doesn't match current record).
+        // Free record and continue iterating otherwise. (in which case given filter doesn't match current record).
         return false;
     }
 
@@ -257,7 +257,7 @@ void remove_fixed(FILE *stream, index_array *index, data record, int rrn, header
 int remove_fixed_filtered(FILE *stream, index_array *index, data filter, header *template) {
     int num_removed = 0;
 
-    if (filter.id != -1) {
+    if (filter.id != EMPTY_FILTER) {
 
         int rrn = find_by_id(*index, filter.id).rrn;
         if (rrn == ERROR_CODE)
@@ -346,7 +346,7 @@ void remove_variable(FILE *stream, index_array *index, data record, long int byt
 int remove_variable_filtered(FILE *stream, index_array *index, data filter, header *template) {
     int num_removed = 0;
 
-    if (filter.id != -1) {
+    if (filter.id != EMPTY_FILTER) {
         long int byteoffset = find_by_id(*index, filter.id).byteoffset;
         fseek(stream, byteoffset, SEEK_SET);
         data record = fread_record(stream, false);
@@ -359,6 +359,7 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
         return ++num_removed;
     }
     else {
+
         long int byteoffset = VARIABLE_HEADER;
         while (byteoffset < template->next_byteoffset - 1) {
             fseek(stream, byteoffset, SEEK_SET);
@@ -369,6 +370,7 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
                 byteoffset += record.size + 5;
                 continue;
             }
+            printf("e");
 
             remove_variable(stream, index, record, byteoffset, template);
             byteoffset += record.size + 5;
