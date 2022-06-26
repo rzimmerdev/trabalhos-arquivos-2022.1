@@ -2,6 +2,7 @@
 
 #include "record.h"
 #include "table.h"
+#include "index.h"
 // TODO: Add more comments
 
 
@@ -141,7 +142,7 @@ int select_table(FILE *stream, bool is_fixed) {
 }
 
 
-bool compare_record(FILE *stream, data template, data record, bool is_fixed) {
+bool compare_record(data template, data record, bool is_fixed) {
     // Verify if template filter has any of the following fixed or variable inputs selected,
     // and if it exists, compare it to its counterpart in the current record (if it's non-empty in the first place)
 
@@ -220,29 +221,97 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
 }
 
 
-int remove_where(FILE *stream, data filter, bool is_fixed) {
+int verify_record(data record, data filter, bool is_fixed) {
+    if (record.removed == IS_REMOVED) {
+        free_record(record);
+        return ERROR_CODE;
+    }
 
+    if (!compare_record(filter, record, is_fixed)) {
+        free_record(record);
+        return ERROR_CODE;
+    }
+    return SUCCESS_CODE;
+}
+
+
+void remove_fixed(FILE *stream, char *index_filename, data record, int rrn, header *template) {
+    long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+    remove_index(index_filename, record.id, true);
+    remove_record(stream, offset, &template->top, true);
+    template->top = rrn;
+    free_record(record);
+}
+
+
+int remove_fixed_filtered(FILE *stream, char *index_filename, data filter, header *template) {
+    int num_removed = 0;
+    if (filter.id != -1) {
+        int rrn = find_by_id(index_filename, filter.id, true).rrn;
+
+        if (rrn == ERROR_CODE)
+            return ERROR_CODE;
+
+        long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+        fseek(stream, offset, SEEK_SET);
+
+        data record = fread_record(stream, true);
+
+        int result = verify_record(record, filter, true);
+        if (result == ERROR_CODE)
+            return ERROR_CODE;
+
+        remove_fixed(stream, index_filename, record, rrn, template);
+
+        return ++num_removed;
+    }
+    else {
+        int rrn = 0;
+        while (true && (rrn++ < template->next_rrn)) {
+
+            long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+            data record = fread_record(stream, true);
+
+            int status = verify_record(record, filter, true);
+            if (status == ERROR_CODE)
+                continue;
+
+            remove_fixed(stream, index_filename, record, rrn, template);
+            num_removed++;
+        }
+
+        return num_removed;
+    }
+}
+
+
+void remove_variable(FILE *stream, char *index_filename, data record, long int byteoffset, header *template) {
+
+}
+
+
+int remove_variable_filtered(FILE *stream, char *index_filename, data filter, header *template) {
+    int num_removed = 0;
+    if (filter.id != -1) {
+
+    }
+}
+
+
+int remove_where(FILE *stream, char *index_filename, data filter, bool is_fixed) {
     fseek(stream, 0, SEEK_SET);
     header header_template = fread_header(stream, is_fixed);
 
-    int current_rrn = 0, num_removed = 0;
-
-    while ((is_fixed && (current_rrn++ < header_template.next_rrn)) ||
+    /*while ((is_fixed && (current_rrn++ < header_template.next_rrn)) ||
             (!is_fixed && ftell(stream) < header_template.next_byteoffset)) {
 
         long int record_offset = ftell(stream);
         data record = fread_record(stream, is_fixed);
         long int next_offset = ftell(stream);
 
-        if (record.removed == IS_REMOVED) {
-            free_record(record);
+        int status = verify_record(record, filter, is_fixed);
+        if (status == ERROR_CODE)
             continue;
-        }
-
-        if (!compare_record(stream, filter, record, is_fixed)) {
-            free_record(record);
-            continue;
-        }
 
         num_removed++;
 
@@ -286,11 +355,15 @@ int remove_where(FILE *stream, data filter, bool is_fixed) {
 
         fseek(stream, next_offset, SEEK_SET);
         free_record(record);
+    }*/
+
+    int num_removed = is_fixed ? remove_fixed_filtered(stream, index_filename, filter, &header_template) :
+                             remove_variable_filtered(stream, index_filename, filter, &header_template);
+
+    if (num_removed > 0) {
+        header_template.num_removed += num_removed;
     }
-
     header_template.status[0] = OK_STATUS[0];
-    header_template.num_removed += num_removed;
     write_header(stream, header_template, is_fixed, true);
-
     return 1;
 }

@@ -128,7 +128,9 @@ int main() {
             free(data_filename);
             free(index_filename);
 
-            if (status == ERROR_CODE)
+            if (status == SUCCESS_CODE)
+                binarioNaTela(index_path);
+            else if (status == ERROR_CODE)
                 printf("Falha no processamento do arquivo.");
             else if (status == NOT_FOUND)
                 printf("Registro inexistente.\n");
@@ -148,12 +150,15 @@ int main() {
             strcat(index_path, index_filename);
 
             int total_filters; scanf("%d ", &total_filters);
-
             int status = delete_records_command(data_path, index_path, total_filters, filetype);
             free(data_filename);
             free(index_filename);
 
-            if (status == ERROR_CODE)
+            if (status == SUCCESS_CODE) {
+                binarioNaTela(data_path);
+                binarioNaTela(index_path);
+            }
+            else if (status == ERROR_CODE)
                 printf("Falha no processamento do arquivo.");
             else if (status == NOT_FOUND)
                 printf("Registro inexistente.\n");
@@ -161,7 +166,7 @@ int main() {
             break;
         }
 
-        case INSERT_RECORDS: {
+        /*case INSERT_RECORDS: {
             char *data_filename = scan_word();
             char *index_filename = scan_word();
             
@@ -218,7 +223,7 @@ int main() {
                 printf("Registro inexistente.\n");
 
             break;
-        }
+        }*/
     }
 
     return EXIT_SUCCESS;
