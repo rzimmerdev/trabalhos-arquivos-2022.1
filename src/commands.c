@@ -97,7 +97,7 @@ int lookup(char *key) {
 
 
 data scanf_filter(int total_parameters) {
-    data template = {.id = EMPTY, .year = EMPTY, .total = EMPTY};
+    data template = {.id = EMPTY_FILTER, .year = EMPTY_FILTER, .total = EMPTY_FILTER, .state = EMPTY_FILTER};
     for (int i = 0; i < total_parameters; i++) {
         char *column = scan_quote_string();
         int fixed;
