@@ -93,6 +93,7 @@ char *scan_word_quoted() {
 
     word = realloc(word, (size + 1) * sizeof(char));
     word[size] = '\0';
+    
     return word;
 }
 
