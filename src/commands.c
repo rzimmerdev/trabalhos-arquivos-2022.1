@@ -99,7 +99,7 @@ int lookup(char *key) {
 data scanf_filter(int total_parameters) {
     data template = {.id = EMPTY, .year = EMPTY, .total = EMPTY};
     for (int i = 0; i < total_parameters; i++) {
-        char *column = scan_word();
+        char *column = scan_quote_string();
         int fixed;
         char *variable;
 
@@ -109,7 +109,7 @@ data scanf_filter(int total_parameters) {
         if (column_code == 0 || column_code == 1 || column_code == 2)
             scanf("%d ", &fixed);
         else {
-            variable = scan_word_quoted(); getchar();
+            variable = scan_quote_string();
         }
 
         // Switches column_code to read value from console into correct template filter field.
@@ -418,7 +418,9 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     update_status(index_file_ptr, BAD_STATUS);
 
     for (int i = 0; i < total_insertions; i++) {
+        // Ler entrada no formato da func. 7
         data curr_insertion = read_record_entry(is_fixed);
+
         index_node node_to_add = {};
         node_to_add.id = curr_insertion.id;
 
@@ -539,14 +541,76 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     return SUCCESS_CODE;
 }
 
+data read_update_entry(bool is_fixed) {
+    // Quantos campos serao usados para buscar o registro
+    int search_filter_amt; scanf("%d ", &search_filter_amt);
+
+    for (int i = 0; i < search_filter_amt; i++) {
+        
+    }
+}
+
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+    // Teste dos ponteiros de arquivo e sua validez
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE) {
+
         return ERROR_CODE;
+    }
+
     FILE *data_file_ptr = fopen(data_filename, "rb+");
+
+    // Teste da consistencia do arquivo de dados (ao abrir, estava com BAD_STATUS?)
+    if (getc(data_file_ptr) == '0') {
+        fclose(data_file_ptr);
+
+        return ERROR_CODE;
+    }
+
+    header file_header = fread_header(data_file_ptr, is_fixed);
+
+    // Para escrever no arquivo de dados, configurar status como BAD_STATUS
+    update_status(data_file_ptr, BAD_STATUS);
+
     FILE *index_file_ptr = fopen(index_filename, "rb+");
+
+    // Teste da consistencia do arquivo de indice (ao abrir, estava com BAD_STATUS?)
+    if (getc(index_file_ptr) == '0') {
+        fclose(data_file_ptr);
+        fclose(index_file_ptr);
+
+        return ERROR_CODE;
+    }
+
+    fseek(index_file_ptr, 0, SEEK_END);
+    int size = (int) (ftell(index_file_ptr) - sizeof(char)) / (is_fixed ? 8 : 12);
+
+    // Carregar o indice para a RAM
+    fseek(index_file_ptr, 0, SEEK_SET);
+    index_node *index_array = index_to_array(index_file_ptr, size, is_fixed);
+
+    // Para escrever no arquivo de indice, configurar status como BAD_STATUS
+    update_status(index_file_ptr, BAD_STATUS);
+
+    for (int i = 0; i < total_updates; i++) {
+        // Ler entrada no formato da func. 8
+        data curr_update = read_update_entry(is_fixed);
+    }
+
+    // Escrever cabecalho no arquivo em disco
+    write_header(data_file_ptr, file_header, is_fixed, 0);
+
+    // Para finalizar a escrita no arquivo de dados, configurar status como OK_STATUS
+    update_status(data_file_ptr, OK_STATUS);
+
+    // Escrever indice no arquivo em disco
+    // array_to_index(index_file_ptr, index_array, size, is_fixed);
+
+    update_status(index_file_ptr, OK_STATUS);
+
+    free_index_array(index_array);
 
     fclose(data_file_ptr);
     fclose(index_file_ptr);
-
+    
     return SUCCESS_CODE;
 }

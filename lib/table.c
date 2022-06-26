@@ -324,7 +324,7 @@ void remove_variable(FILE *stream, char *index_filename, data record, long int b
         parent_offset = current_offset;
         current_offset = current.big_next;
         free_record(current);
-        printf("Current: %ld for size: %d\n", parent_offset, current.size);
+        // printf("Current: %ld for size: %d\n", parent_offset, current.size);
     }
 
     fseek(stream, parent_offset + sizeof(char) + sizeof(int), SEEK_SET);
@@ -345,8 +345,8 @@ int remove_variable_filtered(FILE *stream, char *index_filename, data filter, he
         int result = verify_record(record, filter, true);
         if (result == ERROR_CODE)
             return ERROR_CODE;
-        printf("By ID: %d, offset: %ld\n", filter.id, byteoffset);
-        printf_record(record);
+        // printf("By ID: %d, offset: %ld\n", filter.id, byteoffset);
+        // printf_record(record);
         remove_variable(stream, index_filename, record, byteoffset, template);
         return ++num_removed;
     }
@@ -361,8 +361,8 @@ int remove_variable_filtered(FILE *stream, char *index_filename, data filter, he
                 byteoffset += record.size + 5;
                 continue;
             }
-            printf("By Field: %d, offset: %ld\n", filter.year, byteoffset);
-            printf_record(record);
+            // printf("By Field: %d, offset: %ld\n", filter.year, byteoffset);
+            // printf_record(record);
             remove_variable(stream, index_filename, record, byteoffset, template);
             byteoffset += record.size + 5;
             num_removed++;
