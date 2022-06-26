@@ -19,6 +19,7 @@ copy: all
 valgrind: all
 	make copy
 	make all
+	@cat $(cases_input)/$(individual_case).in
 	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -s ./main < $(cases_input)/$(individual_case).in > saida.txt
 	@cat saida.txt
 	@echo Expected output:

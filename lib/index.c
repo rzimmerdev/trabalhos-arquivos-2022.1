@@ -26,7 +26,7 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
     header table_header = fread_header(origin_stream, is_fixed);
 
     int current_rrn = 0;
-    long int current_byteoffset = ftell(origin_stream);
+    long int current_byteoffset = VARIABLE_HEADER;
 
     int buffer = BUFSIZ, total_indexes = 0;
     long int (*indexes)[2] = malloc(buffer * sizeof(long int [2]));
@@ -51,7 +51,7 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
         total_indexes++;
 
         current_rrn += 1;
-        current_byteoffset = ftell(origin_stream);
+        current_byteoffset += to_indexate.size + 5;
         free_record(to_indexate);
     }
 
@@ -140,12 +140,13 @@ int binary_search(index_node *array, index_node lookup, int offset, int top) {
 
 index_node find_by_id(char *index_filename, int id, bool is_fixed) {
     FILE *stream = fopen(index_filename, "rb+");
-
     fseek(stream, 0, SEEK_END);
     int size = (int) (ftell(stream) - sizeof(char)) / (is_fixed ? 8 : 12);
     fseek(stream, 1, SEEK_SET);
 
     index_node *array = index_to_array(stream, size, is_fixed);
+    fclose(stream);
+
     index_node to_find = {.id = id};
     int idx = binary_search(array, to_find, 0, size - 1);
 
@@ -153,12 +154,12 @@ index_node find_by_id(char *index_filename, int id, bool is_fixed) {
         free_index_array(array);
 
         index_node empty = {.id = id, .rrn = -1, .byteoffset = -1};
+
         return empty;
     }
 
     index_node to_return = array[idx];
     free_index_array(array);
-    fclose(stream);
     return to_return;
 }
 

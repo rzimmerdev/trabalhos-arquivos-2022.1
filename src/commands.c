@@ -277,19 +277,17 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
     if (verify_stream(data_filename, index_filename) == ERROR_CODE)
         return ERROR_CODE;
     FILE *data_file_ptr = fopen(data_filename, "rb+");
-    FILE *index_file_ptr = fopen(data_filename, "rb+");
 
     for (; total_filters > 0; total_filters--) {
         fseek(data_file_ptr, 0, SEEK_SET);
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        // remove_where(data_file_ptr, filter, is_fixed);
+        remove_where(data_file_ptr, index_filename, filter, is_fixed);
         free_record(filter);
     }
 
     fclose(data_file_ptr);
-    fclose(index_file_ptr);
 
     return SUCCESS_CODE;
 }
