@@ -237,8 +237,10 @@ int verify_record(data record, data filter, bool is_fixed) {
 
 void remove_fixed(FILE *stream, char *index_filename, data record, int rrn, header *template) {
     long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+
     remove_index(index_filename, record.id, true);
-    remove_record(stream, offset, &template->top, true);
+    remove_record(stream, offset, &(template->top), true);
+
     template->top = rrn;
     free_record(record);
 }
@@ -246,32 +248,31 @@ void remove_fixed(FILE *stream, char *index_filename, data record, int rrn, head
 
 int remove_fixed_filtered(FILE *stream, char *index_filename, data filter, header *template) {
     int num_removed = 0;
-    if (filter.id != -1) {
-        int rrn = find_by_id(index_filename, filter.id, true).rrn;
 
+    if (filter.id != -1) {
+
+        int rrn = find_by_id(index_filename, filter.id, true).rrn;
         if (rrn == ERROR_CODE)
             return ERROR_CODE;
 
-        long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
-        fseek(stream, offset, SEEK_SET);
+        long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+        fseek(stream, byteoffset, SEEK_SET);
 
         data record = fread_record(stream, true);
-
         int result = verify_record(record, filter, true);
         if (result == ERROR_CODE)
             return ERROR_CODE;
 
         remove_fixed(stream, index_filename, record, rrn, template);
-
         return ++num_removed;
     }
     else {
         int rrn = 0;
-        while (true && (rrn++ < template->next_rrn)) {
+        while (rrn++ < template->next_rrn - 1) {
+            long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+            fseek(stream, byteoffset, SEEK_SET);
 
-            long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
             data record = fread_record(stream, true);
-
             int status = verify_record(record, filter, true);
             if (status == ERROR_CODE)
                 continue;
@@ -286,15 +287,89 @@ int remove_fixed_filtered(FILE *stream, char *index_filename, data filter, heade
 
 
 void remove_variable(FILE *stream, char *index_filename, data record, long int byteoffset, header *template) {
+    long int parent_offset = template->big_top;
 
+    if (parent_offset == -1) {
+        remove_index(index_filename, record.id, false);
+        remove_record(stream, byteoffset, &(template->big_top), false);
+
+        template->big_top = byteoffset;
+        free_record(record);
+        return;
+    }
+
+    long int current_offset = parent_offset;
+    fseek(stream, parent_offset, SEEK_SET);
+    data current = fread_record(stream, false);
+
+    if (current.size < record.size) {
+        remove_index(index_filename, record.id, false);
+        remove_record(stream, byteoffset, &(template->big_top), false);
+
+        template->big_top = byteoffset;
+        free_record(record);
+        return;
+    }
+
+    free_record(current);
+
+    while (current_offset != -1) {
+        fseek(stream, current_offset, SEEK_SET);
+        current = fread_record(stream, false);
+        if (current.size <= record.size) {
+            free_record(current);
+            break;
+        }
+
+        parent_offset = current_offset;
+        current_offset = current.big_next;
+        free_record(current);
+        printf("Current: %ld for size: %d\n", parent_offset, current.size);
+    }
+
+    fseek(stream, parent_offset + sizeof(char) + sizeof(int), SEEK_SET);
+    fwrite(&byteoffset, sizeof(long int), 1, stream);
+    remove_index(index_filename, record.id, false);
+    remove_record(stream, byteoffset, &current_offset, false);
+    free_record(record);
 }
 
 
 int remove_variable_filtered(FILE *stream, char *index_filename, data filter, header *template) {
     int num_removed = 0;
     if (filter.id != -1) {
+        long int byteoffset = find_by_id(index_filename, filter.id, false).byteoffset;
+        fseek(stream, byteoffset, SEEK_SET);
+        data record = fread_record(stream, false);
 
+        int result = verify_record(record, filter, true);
+        if (result == ERROR_CODE)
+            return ERROR_CODE;
+        printf("By ID: %d, offset: %ld\n", filter.id, byteoffset);
+        printf_record(record);
+        remove_variable(stream, index_filename, record, byteoffset, template);
+        return ++num_removed;
     }
+    else {
+        long int byteoffset = VARIABLE_HEADER;
+        while (byteoffset < template->next_byteoffset - 1) {
+            fseek(stream, byteoffset, SEEK_SET);
+            data record = fread_record(stream, false);
+
+            int status = verify_record(record, filter, false);
+            if (status == ERROR_CODE) {
+                byteoffset += record.size + 5;
+                continue;
+            }
+            printf("By Field: %d, offset: %ld\n", filter.year, byteoffset);
+            printf_record(record);
+            remove_variable(stream, index_filename, record, byteoffset, template);
+            byteoffset += record.size + 5;
+            num_removed++;
+        }
+    }
+
+    return num_removed;
 }
 
 
