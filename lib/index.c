@@ -1,9 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
+
 
 #include "record.h"
 #include "table.h"
+#include "index.h"
 
 
 int comp (const void * elem1, const void * elem2)
@@ -71,9 +74,114 @@ void create_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
 }
 
 
-long int find_by_id(FILE *index_stream, int id) {
+void free_index_array(index_node *array) {
+    free(array);
+}
+
+index_node *index_to_array(FILE *stream, int size, bool is_fixed) {
+
+    index_node *array = malloc(sizeof(index_node) * size);
+
+    if (is_fixed) {
+        for (int i = 0; i < size; i++) {
+            fread(&array[i].id, sizeof(int), 1, stream);
+            fread(&array[i].rrn, sizeof(int), 1, stream);
+        }
+    }
+    else {
+        for (int i = 0; i < size; i++) {
+            fread(&array[i].id, sizeof(int), 1, stream);
+            fread(&array[i].byteoffset, sizeof(long int), 1, stream);
+        }
+    }
+
+    return array;
+}
 
 
+void array_to_index(FILE *stream, index_node *array, int size, bool is_fixed) {
+    update_status(stream, BAD_STATUS);
+    if (is_fixed) {
+        for (int i = 0; i < size; i++) {
+            fwrite(&array[i].id, sizeof(int), 1, stream);
+            fwrite(&array[i].rrn, sizeof(int), 1, stream);
+        }
+    }
+    else {
+        for (int i = 0; i < size; i++) {
+            fwrite(&array[i].id, sizeof(int), 1, stream);
+            fwrite(&array[i].byteoffset, sizeof(long int), 1, stream);
+        }
+    }
+}
 
-    printf("%lu\n", ftell(index_stream) - sizeof(char));
+
+int compare_indexes(index_node first, index_node second) {
+    if (first.id > second.id)
+        return 1;
+    return -(first.id < second.id);
+}
+
+
+int binary_search(index_node *array, index_node lookup, int offset, int top) {
+    int middle = (offset + top) / 2;
+
+    if (offset > top)
+        return -1;
+
+    if (compare_indexes(array[middle], lookup) == 0)
+        return middle;
+    else if (compare_indexes(array[middle], lookup) == -1)
+        return binary_search(array, lookup, middle + 1, top);
+    else
+        return binary_search(array, lookup, offset, middle - 1);
+}
+
+
+index_node find_by_id(char *index_filename, int id, bool is_fixed) {
+    FILE *stream = fopen(index_filename, "rb+");
+
+    fseek(stream, 0, SEEK_END);
+    int size = (int) (ftell(stream) - sizeof(char)) / (is_fixed ? 8 : 12);
+    fseek(stream, 1, SEEK_SET);
+
+    index_node *array = index_to_array(stream, size, is_fixed);
+    index_node to_find = {.id = id};
+    int idx = binary_search(array, to_find, 0, size - 1);
+
+    if (idx == -1) {
+        free_index_array(array);
+
+        index_node empty = {.id = id, .rrn = -1, .byteoffset = -1};
+        return empty;
+    }
+
+    index_node to_return = array[idx];
+    free_index_array(array);
+    fclose(stream);
+    return to_return;
+}
+
+
+index_node remove_index(char *index_filename, int id, bool is_fixed) {
+    FILE *stream = fopen(index_filename, "rb");
+
+    fseek(stream, 0, SEEK_END);
+    int size = (ftell(stream) - sizeof(char)) / (is_fixed ? 8 : 12);
+    fseek(stream, 1, SEEK_SET);
+    index_node *array = index_to_array(stream, size, is_fixed);
+    index_node to_find = {.id = id};
+    int idx = binary_search(array, to_find, 0, size - 1);
+    index_node to_return = array[idx];
+    memmove(&(array[idx]), &(array[idx + 1]), (--size - idx) * sizeof(index_node));
+    fclose(stream);
+
+    stream = fopen(index_filename, "wb");
+
+    array_to_index(stream, array, size, is_fixed);
+    free_index_array(array);
+
+    update_status(stream, OK_STATUS);
+    fclose(stream);
+    return to_return;
 }
