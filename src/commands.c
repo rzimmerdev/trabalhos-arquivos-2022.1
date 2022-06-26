@@ -237,24 +237,6 @@ int select_rrn_command(char *bin_filename, int rrn) {
 }
 
 
-// TODO: Add error codes
-int create_index_command(char *data_filename, char *index_filename, bool is_fixed) {
-
-    FILE *original_file_ptr = fopen(data_filename, "rb");
-
-    if (original_file_ptr == NULL)
-        return ERROR_CODE;
-
-    FILE *index_file_ptr = fopen("index.bin", "wb");
-
-    create_index(original_file_ptr, index_file_ptr, is_fixed);
-    fclose(original_file_ptr);
-    fclose(index_file_ptr);
-    binarioNaTela("index.bin");
-    return 1;
-}
-
-
 int verify_stream(char *data_filename, char *index_filename) {
     FILE *data_stream = fopen(data_filename, "rb+");
 
@@ -283,6 +265,20 @@ int verify_stream(char *data_filename, char *index_filename) {
     return SUCCESS_CODE;
 }
 
+
+int create_index_command(char *data_filename, char *index_filename, bool is_fixed) {
+
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+        return ERROR_CODE;
+
+    FILE *original_file_ptr = fopen(data_filename, "rb");
+    FILE *index_file_ptr = fopen(index_filename, "wb");
+
+    create_index(original_file_ptr, index_file_ptr, is_fixed);
+    fclose(original_file_ptr);
+    fclose(index_file_ptr);
+    return SUCCESS_CODE;
+}
 
 int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed) {
 
@@ -496,10 +492,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
             }
         }
 
-        // TODO: Consertar essa linha, tá dando muito ruim no valgrind
-            // Nao consigo usar realloc :( 
         insert_into_index_array(&index, node_to_add);
-
         free_record(curr_insertion);
     }
 
@@ -510,7 +503,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     update_status(data_file_ptr, OK_STATUS);
 
     // Escrever indice no arquivo em disco
-    // array_to_index(index_file_ptr, index_array, size, is_fixed);
+    array_to_index(index, is_fixed);
 
     fclose(data_file_ptr);
     free_index_array(index);
