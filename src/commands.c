@@ -531,51 +531,41 @@ int update_records_command(char *data_filename, char *index_filename, int total_
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
-    FILE *data_file_ptr = fopen(data_filename, "rb+");
-
-    // Teste da consistencia do arquivo de dados (ao abrir, estava com BAD_STATUS?)
-    if (getc(data_file_ptr) == '0') {
-        fclose(data_file_ptr);
-
-        return ERROR_CODE;
-    }
-
-    header file_header = fread_header(data_file_ptr, is_fixed);
+    FILE *data_stream = fopen(data_filename, "rb+");
+    header file_header = fread_header(data_stream, is_fixed);
 
     // Para escrever no arquivo de dados, configurar status como BAD_STATUS
-    update_status(data_file_ptr, BAD_STATUS);
-
-    FILE *index_file_ptr = fopen(index_filename, "rb+");
-
-    // Teste da consistencia do arquivo de indice (ao abrir, estava com BAD_STATUS?)
-    if (getc(index_file_ptr) == '0') {
-        fclose(data_file_ptr);
-        fclose(index_file_ptr);
-
-        return ERROR_CODE;
-    }
-
+    update_status(data_stream, BAD_STATUS);
     // Carregar o indice para a RAM
     index_array index = index_to_array(index_filename, is_fixed);
 
     for (int i = 0; i < total_updates; i++) {
         // Ler entrada no formato da func. 8
-        data curr_update = read_update_entry(is_fixed);
+        fseek(data_stream, 0, SEEK_SET);
+        int total_parameters;
+
+        scanf("%d ", &total_parameters);
+        data filter = scanf_filter(total_parameters);
+
+        scanf("%d ", &total_parameters);
+        data params = scanf_filter(total_parameters);
+
+        free_record(filter);
+        free_record(params);
     }
 
     // Escrever cabecalho no arquivo em disco
-    write_header(data_file_ptr, file_header, is_fixed, 0);
+    write_header(data_stream, file_header, is_fixed, 0);
 
     // Para finalizar a escrita no arquivo de dados, configurar status como OK_STATUS
-    update_status(data_file_ptr, OK_STATUS);
+    update_status(data_stream, OK_STATUS);
 
     // Escrever indice no arquivo em disco
     // array_to_index(index_file_ptr, index_array, size, is_fixed);
 
     free_index_array(&index);
 
-    fclose(data_file_ptr);
-    fclose(index_file_ptr);
+    fclose(data_stream);
     
     return SUCCESS_CODE;
 }

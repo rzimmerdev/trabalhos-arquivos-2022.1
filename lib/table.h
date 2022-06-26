@@ -8,6 +8,8 @@
 #ifndef T1_TABLE_H
 #define T1_TABLE_H
 
+#define EMPTY_FILTER -2
+
 typedef struct Header_t {
 
     char status[1];
