@@ -397,3 +397,110 @@ int remove_where(FILE *stream, index_array index, data filter, bool is_fixed) {
     write_header(stream, header_template, is_fixed, true);
     return 1;
 }
+
+void update_record(data *record, data params) {
+    record->removed = NOT_REMOVED;
+
+    if (params.id != EMPTY_FILTER) {
+        record->id = params.id;
+    }
+
+    if (params.year != EMPTY_FILTER) {
+        record->year = params.year;
+    }
+
+    if (params.total != EMPTY_FILTER) {
+        record->total = params.total;
+    }
+
+    if (params.state[0] != EMPTY_FILTER) {
+        record->state[0] = params.state[0];
+        record->state[1] = params.state[1];
+    }
+
+    if (params.city != NULL) {
+        record->city = params.city;
+        record->city_size = strlen(record->city);
+    }
+
+    if (params.brand != NULL) {
+        record->brand = params.brand;
+        record->brand_size = strlen(record->brand);
+    }
+
+    if (params.model != NULL) {
+        record->model = params.model;
+        record->model_size = strlen(record->model);
+    }
+}
+
+void update_fixed(FILE *stream, index_array *index, data record, data params, int rrn, header *template) {
+    long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+
+    // Make an update on index array
+    if (params.id != EMPTY_FILTER) {
+        remove_from_index_array(index, record.id);
+        index_node new_node = {};
+        new_node.id = params.id;
+        new_node.rrn = rrn;
+
+        insert_into_index_array(index, new_node);
+    }
+
+    // Make an update on data file
+    update_record(&record, params);
+    
+    fseek(stream, offset, SEEK_SET);
+    write_record(stream, record, true);
+
+    free_record(record);
+}
+
+int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
+    int num_updated = 0;
+
+    /* Buscar os registros que dao match usando os criterios contidos
+    * em filter.
+    * Se o campo id estiver preenchido, buscar o registro no arquivo de indice;
+    * se nao tem o id como parametro de busca, procure sequencialmente no
+    * arquivo de dados, comparando os criterios.*/
+    if (filter.id != EMPTY_FILTER) {
+
+        int rrn = find_by_id(*index, filter.id).rrn;
+        if (rrn == ERROR_CODE)
+            return ERROR_CODE;
+
+        long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+        fseek(stream, byteoffset, SEEK_SET);
+
+        // Acesso direto no arq. de dados
+        data record = fread_record(stream, true);
+        int result = verify_record(record, filter);
+        if (result == ERROR_CODE)
+            return ERROR_CODE;
+
+        // Alterar os registros que dao match com os valores contidos
+        // em params.
+        // Se for para registro de tamanho fixo, basta realizar a alteracao, porque sempre cabe no espaco.
+        update_fixed(stream, index, record, params, rrn, template);
+
+        return ++num_updated;
+    }
+    else {
+        int rrn = 0;
+        while (rrn++ < template->next_rrn - 1) {
+            long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
+            fseek(stream, byteoffset, SEEK_SET);
+
+            data record = fread_record(stream, true);
+            int status = verify_record(record, filter);
+            if (status == ERROR_CODE)
+                continue;
+
+            update_fixed(stream, index, record, params, rrn, template);
+            num_updated++;
+        }
+
+        return num_updated;
+    }
+}

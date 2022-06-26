@@ -37,4 +37,6 @@ index_node find_by_id(index_array index, int id);
 void remove_from_index_array(index_array *index, int id);
 void insert_into_index_array(index_array *index, index_node to_insert);
 
+int binary_search(index_array index, index_node lookup, int offset, int top);
+
 #endif //INDEX_H

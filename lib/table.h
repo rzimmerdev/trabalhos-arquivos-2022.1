@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "record.h"
+#include "index.h"
 
 #ifndef T1_TABLE_H
 #define T1_TABLE_H
@@ -69,5 +70,7 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
 
 
 int remove_where(FILE *stream, index_array index, data filter, bool is_fixed);
+
+int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
 #endif //T1_TABLE_H

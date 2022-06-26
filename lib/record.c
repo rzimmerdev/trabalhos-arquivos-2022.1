@@ -60,7 +60,7 @@ void get_file_size(FILE *stream, void *size, bool is_fixed) {
 
 
 int write_variable_field(FILE *stream, char *value, char code, int size) {
-    if (strlen(value)) {
+    if (value && strlen(value)) {
         fwrite(&size, 4, 1, stream);
         fwrite(&code, 1, 1, stream);
         fwrite(value, 1, size, stream);

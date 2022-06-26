@@ -7,7 +7,6 @@
 #include "../lib/utils.h"
 #include "../lib/record.h"
 #include "../lib/table.h"
-#include "../lib/index.h"
 #include "commands.h"
 #include "csv_utils.h"
 
@@ -97,7 +96,8 @@ int lookup(char *key) {
 
 
 data scanf_filter(int total_parameters) {
-    data template = {.id = EMPTY_FILTER, .year = EMPTY_FILTER, .total = EMPTY_FILTER, .state = EMPTY_FILTER};
+    data template = {.id = EMPTY_FILTER, .year = EMPTY_FILTER, .total = EMPTY_FILTER, .state = EMPTY_FILTER,
+                     .city = NULL, .model = NULL, .brand = NULL};
     for (int i = 0; i < total_parameters; i++) {
         char *column = scan_quote_string();
         int fixed;
@@ -127,6 +127,10 @@ data scanf_filter(int total_parameters) {
                 break;
             }
             case 3: {
+                // If you want to change state to null (entry for state equals NULO,
+                // so you want to put $$ on that field)
+                template.state[0] = GARBAGE;
+                template.state[1] = GARBAGE;
                 memcpy(template.state, variable, strlen(variable));
                 free(variable);
                 break;
@@ -534,6 +538,7 @@ int update_records_command(char *data_filename, char *index_filename, int total_
 
     // Para escrever no arquivo de dados, configurar status como BAD_STATUS
     update_status(data_stream, BAD_STATUS);
+
     // Carregar o indice para a RAM
     index_array index = index_to_array(index_filename, is_fixed);
 
@@ -554,6 +559,16 @@ int update_records_command(char *data_filename, char *index_filename, int total_
         // Esses sao os valores atualizados que substituirao os antigos
         data params = scanf_filter(total_parameters); 
 
+        if (is_fixed) {
+            update_fixed_filtered(data_stream, &index, filter, params, &file_header);
+        }
+
+        else {
+            // Ja para reg. de tam. variavel, teste se ha espaco no registro a partir de seu tamanho. Se nao,
+            // precisa chamar a remocao (6) para tirar o reg. antigo daquele espaco e a insercao (7) para
+            // encontrar um espaco pertinente ao reg. atualizado.
+        }
+
         free_record(filter);
         free_record(params);
     }
@@ -565,7 +580,7 @@ int update_records_command(char *data_filename, char *index_filename, int total_
     update_status(data_stream, OK_STATUS);
 
     // Escrever indice no arquivo em disco
-    // array_to_index(index_file_ptr, index_array, size, is_fixed);
+    array_to_index(index, is_fixed);
 
     free_index_array(&index);
 
