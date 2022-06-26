@@ -166,13 +166,18 @@ int main() {
             break;
         }
 
-        /*case INSERT_RECORDS: {
+        case INSERT_RECORDS: {
             char *data_filename = scan_word();
             char *index_filename = scan_word();
-            char data_path[4 + (int) strlen(data_filename)];
+            
+            char *data_path = (char *) malloc((5 + (int)strlen(data_filename)) * sizeof(char));
+            data_path[0] = '\0';
+
+            char *index_path = (char *) malloc((5 + (int)strlen(index_filename)) * sizeof(char));
+            index_path[0] = '\0';
+
             strcpy(data_path, "bin/");
             strcat(data_path, data_filename);
-            char index_path[4 + (int) strlen(index_filename)];
             strcpy(index_path, "bin/");
             strcat(index_path, index_filename);
 
@@ -181,7 +186,7 @@ int main() {
             int status = insert_records_command(data_path, index_path, total_insertions, filetype);
 
             if (status != ERROR_CODE) {
-                binarioNaTela(data_filename);
+                binarioNaTela(data_path);
             }
 
             else {
@@ -190,6 +195,8 @@ int main() {
 
             free(data_filename);
             free(index_filename);
+            free(data_path);
+            free(index_path);
 
             break;
         }
@@ -216,7 +223,7 @@ int main() {
                 printf("Registro inexistente.\n");
 
             break;
-        }*/
+        }
     }
 
     return EXIT_SUCCESS;

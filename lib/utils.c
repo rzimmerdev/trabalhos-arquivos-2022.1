@@ -76,7 +76,7 @@ char *scan_word_quoted() {
     int size = 0;
     char *word = malloc(size * sizeof(char));
     char current_char = getchar();
-    if (current_char == 'N') {
+    if (current_char == 'N') { // Teste de campo NULO
         word = realloc(word, 1 * sizeof(char));
         word[0] = '\0';
         getchar(); getchar(); getchar();
@@ -94,6 +94,50 @@ char *scan_word_quoted() {
     word = realloc(word, (size + 1) * sizeof(char));
     word[size] = '\0';
     
+    return word;
+}
+
+// dado
+char *scan_quote_string() {
+
+	/*
+	*	Use essa função para ler um campo string delimitado entre aspas (").
+	*	Chame ela na hora que for ler tal campo. Por exemplo:
+	*
+	*	A entrada está da seguinte forma:
+	*		nomeDoCampo "MARIA DA SILVA"
+	*
+	*	Para ler isso para as strings já alocadas str1 e str2 do seu programa, você faz:
+	*		scanf("%s", str1); // Vai salvar nomeDoCampo em str1
+	*		scan_quote_string(str2); // Vai salvar MARIA DA SILVA em str2 (sem as aspas)
+	*
+	*/
+
+	char current_char;
+
+	while((current_char = getchar()) != EOF && isspace(current_char)); // ignorar espaços, \r, \n...
+
+    int size = 1;
+    char *word = malloc(size * sizeof(char));
+    word[0] = '\0';
+
+	if(current_char == 'N' || current_char == 'n') { // campo NULO
+		getchar(); getchar(); getchar(); // ignorar o "ULO" de NULO.
+	} else if(current_char == '\"') {
+        while (scanf("%c", &current_char) == 1 && current_char != '"') {
+            if (current_char != '\r') {
+                word = realloc(word, ++size * sizeof(char));
+                word[size - 2] = current_char;
+            }
+        }
+        
+        word[size - 1] = '\0';
+	} else if(current_char != EOF){
+        ungetc(current_char, stdin); // vc tá tentando ler uma string que não tá entre aspas! Fazer leitura normal %s então, pois deve ser algum inteiro ou algo assim...
+		free(word);
+        word = scan_word();
+	} 
+
     return word;
 }
 

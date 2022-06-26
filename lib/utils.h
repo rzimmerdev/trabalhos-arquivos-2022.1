@@ -37,4 +37,6 @@ char *scan_word_quoted();
 
 void binarioNaTela(char *nomeArquivoBinario);
 
+char *scan_quote_string();
+
 #endif //T1_UTILS_H

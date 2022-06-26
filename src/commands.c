@@ -292,67 +292,12 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
     return SUCCESS_CODE;
 }
 
-data read_record_entry() {
-    data entry_record = {};
-
-    entry_record.removed = NOT_REMOVED;
-    
-    entry_record.next = EMPTY;
-    entry_record.big_next = EMPTY;
-
-    scanf(" %d", &entry_record.id);
-
-    char *year = scan_word_quoted();
-
-    if (strlen(year) > 0) {
-        entry_record.year = atoi(year);
-    }
-
-    else {
-        entry_record.year = EMPTY;
-    }
-
-    free(year);
-
-    char *total = scan_word_quoted();
-
-    if (strlen(total) > 0) {
-        entry_record.total = atoi(total);
-    }
-
-    else {
-        entry_record.total = EMPTY;
-    }
-
-    free(total);
-
-    char *state = scan_word_quoted();
-
-    if (strlen(state) > 0) {
-        entry_record.state[0] = state[0];
-        entry_record.state[1] = state[1];
-    }
-
-    else {
-        entry_record.state[0] = GARBAGE;
-        entry_record.state[1] = GARBAGE;
-    }
-
-    free(state);
-
-    entry_record.city = scan_word_quoted();
-
-    entry_record.city_size = strlen(entry_record.city);
-    entry_record.brand = scan_word_quoted();
-    entry_record.brand_size = strlen(entry_record.brand);
-    entry_record.model = scan_word_quoted();
-    entry_record.model_size = strlen(entry_record.model);
-
-    return entry_record;
-}
-
 // Para registro de tipo 2
-int evaluate_record_size(data record) {
+int evaluate_record_size(data record, bool is_fixed) {
+    if (is_fixed) {
+        return FIXED_REG_SIZE;
+    }
+    
     int size = 22; // Tamanho considerando apenas informacoes de campos de tamanho fixo
 
     if (strlen(record.city)) {
@@ -370,16 +315,80 @@ int evaluate_record_size(data record) {
     return size;
 }
 
+data read_record_entry(bool is_fixed) {
+    data entry_record = {};
+
+    entry_record.removed = NOT_REMOVED;
+    
+    entry_record.next = EMPTY;
+    entry_record.big_next = EMPTY;
+
+    scanf(" %d", &entry_record.id);
+
+    char *year = scan_quote_string();
+
+    if (strlen(year) > 0) {
+        entry_record.year = atoi(year);
+    }
+
+    else {
+        entry_record.year = EMPTY;
+    }
+
+    free(year);
+
+    char *total = scan_quote_string();
+
+    if (strlen(total) > 0) {
+        entry_record.total = atoi(total);
+    }
+
+    else {
+        entry_record.total = EMPTY;
+    }
+
+    free(total);
+
+    char *state = scan_quote_string();
+
+    if (strlen(state) > 0) {
+        entry_record.state[0] = state[0];
+        entry_record.state[1] = state[1];
+    }
+
+    else {
+        entry_record.state[0] = GARBAGE;
+        entry_record.state[1] = GARBAGE;
+    }
+
+    free(state);
+
+    entry_record.city = scan_quote_string();
+
+    entry_record.city_size = strlen(entry_record.city);
+    entry_record.brand = scan_quote_string();
+    entry_record.brand_size = strlen(entry_record.brand);
+    entry_record.model = scan_quote_string();
+    entry_record.model_size = strlen(entry_record.model);
+
+    entry_record.size = evaluate_record_size(entry_record, is_fixed);
+
+    return entry_record;
+}
+
 int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
     // Teste dos ponteiros de arquivo e sua validez
-    if (verify_stream(data_filename, index_filename) == ERROR_CODE)
+    if (verify_stream(data_filename, index_filename) == ERROR_CODE) {
+
         return ERROR_CODE;
+    }
+
     FILE *data_file_ptr = fopen(data_filename, "rb+");
 
     // Teste da consistencia do arquivo de dados (ao abrir, estava com BAD_STATUS?)
     if (getc(data_file_ptr) == '0') {
         fclose(data_file_ptr);
-        
+
         return ERROR_CODE;
     }
 
@@ -392,7 +401,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     // FILE *index_file_ptr = fopen(index_filename, "rb+");
 
     for (int i = 0; i < total_insertions; i++) {
-        data curr_insertion = read_record_entry();
+        data curr_insertion = read_record_entry(is_fixed);
 
         if (is_fixed) {
             int top_rrn = file_header.top;
@@ -439,12 +448,12 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 
                 fread(&max_reusable_space, sizeof(int), 1, data_file_ptr);
 
-                // Atualizar topo da lista de removidos e sua qtd
-                fread(&file_header.big_top, sizeof(long int), 1, data_file_ptr);
-                file_header.num_removed--;
-                
                 // Se couber no espaco de worst fit, reutilize-o
-                if (evaluate_record_size(curr_insertion) <= max_reusable_space) {
+                if (evaluate_record_size(curr_insertion, is_fixed) <= max_reusable_space) {
+                    // Atualizar topo da lista de removidos e sua qtd
+                    fread(&file_header.big_top, sizeof(long int), 1, data_file_ptr);
+                    file_header.num_removed--;
+
                     curr_insertion.size = max_reusable_space;
 
                     // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
@@ -452,7 +461,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
                     write_record(data_file_ptr, curr_insertion, is_fixed);
 
                     // Preencher espaco que sobrou do registro
-                    for (int i = 0; i < max_reusable_space - evaluate_record_size(curr_insertion); i++) {
+                    for (int i = 0; i < max_reusable_space - evaluate_record_size(curr_insertion, is_fixed); i++) {
                         fputc(GARBAGE, data_file_ptr);
                     }
                 }
@@ -466,6 +475,8 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
                 }
             }
         }
+
+        free_record(curr_insertion);
     }
 
     // Escrever cabecalho no arquivo em disco
