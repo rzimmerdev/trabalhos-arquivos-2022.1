@@ -415,7 +415,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 
                 // Atualizar topo da pilha de removidos e sua qtd
                 fread(&file_header.top, sizeof(int), 1, data_file_ptr);
-                file_header.next_removed--;
+                file_header.num_removed--;
 
                 // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
                 fseek(data_file_ptr, byte_offset, SEEK_SET);
@@ -443,7 +443,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 
                 // Atualizar topo da lista de removidos e sua qtd
                 fread(&file_header.big_top, sizeof(long int), 1, data_file_ptr);
-                file_header.next_removed--;
+                file_header.num_removed--;
                 
                 // Se couber no espaco de worst fit, reutilize-o
                 if (evaluate_record_size(curr_insertion) <= max_reusable_space) {

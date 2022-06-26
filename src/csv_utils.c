@@ -73,7 +73,7 @@ data scan_record_csv(FILE *fp, bool is_fixed, int *last_rrn, long int *next_byte
 void csv_to_bin(FILE *csv, FILE *dest, bool is_fixed) {
 
     header placeholder = {.status=BAD_STATUS, .top=EMPTY, .big_top=EMPTY, .next_rrn=0,
-            .next_byteoffset=0, .next_removed=0};
+            .next_byteoffset=0, .num_removed=0};
     write_header(dest, placeholder, is_fixed, 0);
 
     for (int i = 0; i < 7; i++)

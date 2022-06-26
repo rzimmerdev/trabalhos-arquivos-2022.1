@@ -125,22 +125,7 @@ data fread_record(FILE *stream, bool is_fixed) {
 
     fread(&record.removed, 1, 1, stream);
 
-    // Skip remaining characters if current record is logically marked as removed.
-    // If record is fixed-sized, simply jump 97 - 1 characters, but if record is variable-sized,
-    // it is still necessary to read size of remaining characters from the record itself.
-    if (record.removed == IS_REMOVED) {
-        if (is_fixed) {
-            fseek(stream, 96, SEEK_CUR);
-        }
-        else {
-            fread(&record.size, 4, 1, stream);
-            fseek(stream, record.size, SEEK_CUR);
-        }
-        return record;
-    }
-
     // Next, write each field in record according to encoding type in desired order:
-
     if (is_fixed)
         fread(&record.next, 4, 1, stream);
     else {
@@ -212,8 +197,16 @@ data fread_record(FILE *stream, bool is_fixed) {
 }
 
 
-void remove_record(FILE *stream, long int record_offset) {
+void remove_record(FILE *stream, long int record_offset, void *next, bool is_fixed) {
     fseek(stream, record_offset, SEEK_SET);
-    char removed[1]; removed[0] = IS_REMOVED;
-    fwrite(removed, sizeof(char), 1, stream);
+
+    char removed = IS_REMOVED;
+    fwrite(&removed, sizeof(char), 1, stream);
+
+    if (is_fixed)
+        fwrite((int *) next, sizeof(int), 1, stream);
+    else {
+        fseek(stream, sizeof(int), SEEK_CUR);
+        fwrite((long int *) next, sizeof(long int), 1, stream);
+    }
 }

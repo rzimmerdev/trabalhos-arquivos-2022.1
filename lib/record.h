@@ -110,7 +110,7 @@ void write_record(FILE *dest, data record, bool is_fixed);
 data fread_record(FILE *stream, bool is_fixed);
 
 
-void remove_record(FILE *stream, long int record_offset);
+void remove_record(FILE *stream, long int record_offset, void *next, bool is_fixed);
 
 
 #endif //RECORD_H

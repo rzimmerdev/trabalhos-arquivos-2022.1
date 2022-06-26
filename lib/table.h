@@ -16,7 +16,7 @@ typedef struct Header_t {
 
     int next_rrn;
     long int next_byteoffset;
-    int next_removed;
+    int num_removed;
 
 } header;
 
@@ -63,6 +63,6 @@ int select_table(FILE *stream, bool is_fixed);
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
 
 
-int remove_where(FILE *stream, data template, header header_template, bool is_fixed);
+int remove_where(FILE *stream, data filter, bool is_fixed);
 
 #endif //T1_TABLE_H

@@ -12,7 +12,10 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
      *     FILE *stream: File stream to write header information to
      *     bool is_fixed: File encoding to use as reference (can be either FIXED (1) or VARIABLE (0))
      */
-    update_status(stream, BAD_STATUS);
+    if (rewrite)
+        update_status(stream, placeholder.status);
+    else
+        update_status(stream, BAD_STATUS);
 
     if (is_fixed) {
         fwrite(&placeholder.top, sizeof(int), 1, stream);
@@ -30,6 +33,9 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
             fwrite(default_description[i], sizeof(char), strlen(default_description[i]), stream);
         }
     }
+    else
+        fseek(stream, is_fixed ? NEXT_RRN_b : NEXT_BYTEOFFSET_b, SEEK_SET);
+
 
     // Set next_rrn or next_byteoffset in header to 0, as placeholder header should only be written
     // if
@@ -39,7 +45,7 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
         fwrite(&placeholder.next_byteoffset, sizeof(long int), 1, stream);
     }
 
-    fwrite(&placeholder.next_removed, sizeof(int), 1, stream);
+    fwrite(&placeholder.num_removed, sizeof(int), 1, stream);
 }
 
 
@@ -75,7 +81,7 @@ header fread_header(FILE *stream, bool is_fixed) {
         fread(&placeholder.next_byteoffset, sizeof(long int), 1, stream);
     }
 
-    fread(&placeholder.next_removed, sizeof(int), 1, stream);
+    fread(&placeholder.num_removed, sizeof(int), 1, stream);
 
     return placeholder;
 }
@@ -150,7 +156,7 @@ bool compare_record(FILE *stream, data template, data record, bool is_fixed) {
     if ((template.city && !record.city) || (template.city && record.city && strcmp(template.city, record.city)) ||
         (template.brand && !record.brand) || (template.brand && record.brand && strcmp(template.brand, record.brand)) ||
         (template.model && !record.model) || (template.model && record.model && strcmp(template.model, record.model)) ||
-        (template.state && !record.state) || (template.state && record.state && strcmp(template.state, record.state))) {
+        (strlen(template.state) == 2 && !record.state) || (strlen(template.state) == 2 && strcmp(template.state, record.state))) {
 
             // Free record and continue iterating otherwise. (in which case given filter doesn't match current record).
         return false;
@@ -214,23 +220,77 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
 }
 
 
-int remove_where(FILE *stream, data filter, header header_template, bool is_fixed) {
+int remove_where(FILE *stream, data filter, bool is_fixed) {
 
-    // char is_removed[1]; is_removed[0] = IS_REMOVED;
-    // fwrite(is_removed, sizeof(char), 1, stream);
-    // fseek(stream, -1, SEEK_CUR);
+    fseek(stream, 0, SEEK_SET);
+    header header_template = fread_header(stream, is_fixed);
 
-    while ((is_fixed && (header_template.next_rrn-- > 0)) || (!is_fixed && ftell(stream) < header_template.next_byteoffset)) {
+    int current_rrn = 0, num_removed = 0;
+
+    while ((is_fixed && (current_rrn++ < header_template.next_rrn)) ||
+            (!is_fixed && ftell(stream) < header_template.next_byteoffset)) {
+
         long int record_offset = ftell(stream);
         data record = fread_record(stream, is_fixed);
         long int next_offset = ftell(stream);
 
-        if (compare_record(stream, filter, record, is_fixed)) {
-            remove_record(stream, record_offset);
-            fseek(stream, next_offset, SEEK_SET);
+        if (record.removed == IS_REMOVED) {
+            free_record(record);
+            continue;
         }
+
+        if (!compare_record(stream, filter, record, is_fixed)) {
+            free_record(record);
+            continue;
+        }
+
+        num_removed++;
+
+        if (is_fixed || header_template.top == -1) {
+            remove_record(stream, record_offset, &header_template.top, is_fixed);
+            header_template.top = current_rrn - 1;
+        }
+        else {
+            long int parent_offset = header_template.big_top, current_offset = header_template.big_top;
+            bool pass = false;
+            fseek(stream, parent_offset, SEEK_SET);
+            data current = fread_record(stream, is_fixed);
+
+            if (current.size < record.size) {
+                remove_record(stream, record_offset, &parent_offset, is_fixed);
+                header_template.big_top = record_offset;
+                pass = true;
+            }
+            free_record(current);
+
+            while (current_offset != -1 && !pass) {
+                fseek(stream, current_offset, SEEK_SET);
+                current = fread_record(stream, is_fixed);
+                if (current.size < record.size) {
+                    free_record(current);
+                    break;
+                }
+//                printf("%ld, %ld: current_size: %d\n", parent_offset, current_offset, current.size);
+
+                parent_offset = current_offset;
+                current_offset = current.big_next;
+                free_record(current);
+            }
+
+//            printf("id: %d, size: %d, indexed_removed@: %ld, removed@: %ld\n", record.id, record.size, parent_offset, record_offset);
+            fseek(stream, parent_offset, SEEK_SET);
+            fseek(stream, sizeof(char) + sizeof(int), SEEK_CUR);
+            fwrite(&record_offset, sizeof(long int), 1, stream);
+            remove_record(stream, record_offset, &current_offset, is_fixed);
+        }
+
+        fseek(stream, next_offset, SEEK_SET);
         free_record(record);
     }
+
+    header_template.status[0] = OK_STATUS[0];
+    header_template.num_removed += num_removed;
+    write_header(stream, header_template, is_fixed, true);
 
     return 1;
 }
