@@ -297,7 +297,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
 
-    // Trazendo o indice para a RAM
+    // Bring index to RAM
     index_array index = index_to_array(index_filename, is_fixed);
 
     for (; total_filters > 0; total_filters--) {
@@ -308,7 +308,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
         free_record(filter);
     }
 
-    // Escrever no arquivo de indice em disco
+    // Write on index file in disk
     array_to_index(index, is_fixed);
 
     free_index_array(&index);
@@ -381,16 +381,17 @@ data read_record_entry(bool is_fixed) {
 
 
 int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
-    // Teste dos ponteiros de arquivo e sua validez, assim como a consistencia do arquivo para qual apontam.
+    // Testing file pointers and their validity. Then, testing the consistency of the file to which they point
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_file_ptr = fopen(data_filename, "rb+");
     header file_header = fread_header(data_file_ptr, is_fixed);
-    // Carregar o indice para a RAM
+
+    // Loading index to RAM
     index_array index = index_to_array(index_filename, is_fixed);
 
-    // Ler entrada no formato da func. 7
+    // Reading functionality's 7 entry format
     for (int i = 0; i < total_insertions; i++) {
         data curr_insertion = read_record_entry(is_fixed);
 
@@ -398,13 +399,13 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
         free_record(curr_insertion);
     }
 
-    // Escrever cabecalho no arquivo em disco
+    // Writing header on the file to disk
     write_header(data_file_ptr, file_header, is_fixed, 0);
 
-    // Para finalizar a escrita no arquivo de dados, configurar status como OK_STATUS
+    // To finish writing on the data file, set status as OK_STATUS
     update_status(data_file_ptr, OK_STATUS);
 
-    // Escrever indice no arquivo em disco
+    // Write index on the file to disk
     array_to_index(index, is_fixed);
 
     fclose(data_file_ptr);
@@ -414,43 +415,45 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 }
 
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
-    // Teste dos ponteiros de arquivo e sua validez
+    // Testing file pointers and their validity. Then, testing the consistency of the file to which they point
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_stream = fopen(data_filename, "rb+");
     header file_header = fread_header(data_stream, is_fixed);
 
-    // Para escrever no arquivo de dados, configurar status como BAD_STATUS
+    // To write on the data file, set status as BAD_STATUS
     update_status(data_stream, BAD_STATUS);
 
-    // Carregar o indice para a RAM
+    // Load index to RAM
     index_array index = index_to_array(index_filename, is_fixed);
 
     for (int i = 0; i < total_updates; i++) {
-        // Ler entrada no formato da func. 8
+        // Reading functionality's 8 entry format
         fseek(data_stream, 0, SEEK_SET);
         int total_parameters;
 
-        // Ler parametros de busca para poder buscar registros
-        // que contenham esses valores nos campos especificados 
+        // Read search's parameters to look out for records that have these values on
+        // specified fields
         scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        // Ler parametros de atualizacao para poder alterar registros
-        // encontrados a partir dos parametros de busca acima
+        // Read update's parameters to change the records that are found because of
+        // the search parameters above
         scanf("%d ", &total_parameters);
 
-        // Esses sao os valores atualizados que substituirao os antigos
+        // These are the updated values that will replace the old ones
         data params = scanf_filter(total_parameters); 
 
         if (is_fixed) {
             update_fixed_filtered(data_stream, &index, filter, params, &file_header);
         }
 
-        // Para reg. de tam. variavel, teste se ha espaco no registro a partir de seu tamanho. Se nao,
-        // precisa chamar a remocao (6) para tirar o reg. antigo daquele espaco e a insercao (7) para
-        // encontrar um espaco pertinente ao reg. atualizado.
+        /* For records that have variable size, test record's space using its size. If it has
+         * not enough space, it will be necessary the call to removal (func. 6) in order to
+         * delete the old record from that spot, then the insertion (func. 7) will be called 
+         * so the updated record can have a suitable space to occupy.  
+        */
         else {
             update_variable_filtered(data_stream, &index, filter, params, &file_header);
         }
@@ -459,13 +462,13 @@ int update_records_command(char *data_filename, char *index_filename, int total_
         free_record(params);
     }
 
-    // Escrever cabecalho no arquivo em disco
+    // Writing header on the file to disk
     write_header(data_stream, file_header, is_fixed, 0);
 
-    // Para finalizar a escrita no arquivo de dados, configurar status como OK_STATUS
+    // To finish writing on the data file, set status as OK_STATUS
     update_status(data_stream, OK_STATUS);
 
-    // Escrever indice no arquivo em disco
+    // Write index on the file to disk
     array_to_index(index, is_fixed);
 
     free_index_array(&index);
