@@ -312,35 +312,35 @@ void remove_variable(FILE *stream, index_array *index, data record, long int byt
     fseek(stream, parent_offset, SEEK_SET);
     data current = fread_record(stream, false);
 
-    if (current.size < record.size) {
+    if (current.size <= record.size) {
         remove_from_index_array(index, record.id);
         remove_record(stream, byteoffset, &(template->big_top), false);
-
         template->big_top = byteoffset;
         free_record(record);
+        free_record(current);
         return;
     }
 
     free_record(current);
-
     while (current_offset != -1) {
         fseek(stream, current_offset, SEEK_SET);
         current = fread_record(stream, false);
+
         if (current.size <= record.size) {
             free_record(current);
             break;
         }
-
         parent_offset = current_offset;
         current_offset = current.big_next;
         free_record(current);
     }
-
     fseek(stream, parent_offset + sizeof(char) + sizeof(int), SEEK_SET);
     fwrite(&byteoffset, sizeof(long int), 1, stream);
     remove_from_index_array(index, record.id);
     remove_record(stream, byteoffset, &current_offset, false);
     free_record(record);
+    return;
+
 }
 
 
@@ -360,21 +360,16 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
         return ++num_removed;
     }
     else {
+        while (ftell(stream) < template->next_byteoffset - 1) {
 
-        long int byteoffset = VARIABLE_HEADER;
-        while (byteoffset < template->next_byteoffset - 1) {
-            fseek(stream, byteoffset, SEEK_SET);
+            long int record_byteoffset = ftell(stream), after_byteoffset;
             data record = fread_record(stream, false);
-
+            after_byteoffset = ftell(stream);
             int status = verify_record(record, filter);
-            if (status == ERROR_CODE) {
-                byteoffset += record.size + 5;
+            if (status == ERROR_CODE)
                 continue;
-            }
-            printf("e");
-
-            remove_variable(stream, index, record, byteoffset, template);
-            byteoffset += record.size + 5;
+            remove_variable(stream, index, record, record_byteoffset, template);
+            fseek(stream, after_byteoffset, SEEK_SET);
             num_removed++;
         }
     }
