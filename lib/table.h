@@ -68,9 +68,12 @@ int select_table(FILE *stream, bool is_fixed);
 */
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
 
+int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed);
 
-int remove_where(FILE *stream, index_array index, data filter, bool is_fixed);
+int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template);
 
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
+
+int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
 #endif //T1_TABLE_H

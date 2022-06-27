@@ -304,7 +304,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        remove_where(data_file_ptr, index, filter, is_fixed);
+        remove_where(data_file_ptr, &index, filter, is_fixed);
         free_record(filter);
     }
 
@@ -316,29 +316,6 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
     fclose(data_file_ptr);
 
     return SUCCESS_CODE;
-}
-
-// Para registro de tipo 2
-int evaluate_record_size(data record, bool is_fixed) {
-    if (is_fixed) {
-        return FIXED_REG_SIZE;
-    }
-    
-    int size = 22; // Tamanho considerando apenas informacoes de campos de tamanho fixo
-
-    if (strlen(record.city)) {
-        size += 5 + strlen(record.city); // Somar 5 para tamanho + codigo do campo variavel
-    }
-
-    if (strlen(record.brand)) {
-        size += 5 + strlen(record.brand);
-    }
-
-    if (strlen(record.model)) {
-        size += 5 + strlen(record.model);
-    }
-
-    return size;
 }
 
 data read_record_entry(bool is_fixed) {
@@ -417,99 +394,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     for (int i = 0; i < total_insertions; i++) {
         data curr_insertion = read_record_entry(is_fixed);
 
-        index_node node_to_add = {.id = curr_insertion.id, .rrn = EMPTY, .byteoffset = EMPTY};
-
-        if (is_fixed) {
-            // Topo da pilha - contem ultimo registro log. removido
-            int top_rrn = file_header.top;
-
-            if (top_rrn == EMPTY) {
-                int byteoffset = file_header.next_rrn * FIXED_REG_SIZE + FIXED_HEADER;
-                fseek(data_file_ptr, byteoffset, SEEK_SET);
-                write_record(data_file_ptr, curr_insertion, is_fixed);
-
-                // RRN do reg. inserido
-                node_to_add.rrn = file_header.next_rrn;
-
-                file_header.next_rrn++;
-            }
-
-            else { // Usar abordagem dinamica de reuso de espacos
-                int byteoffset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
-
-                node_to_add.rrn = top_rrn;
-
-                // Posicionar ptr no campo de prox. registro logicamente removido
-                fseek(data_file_ptr, byteoffset + 1, SEEK_SET);
-
-                // Atualizar topo da pilha de removidos e sua qtd
-                fread(&file_header.top, sizeof(int), 1, data_file_ptr);
-                file_header.num_removed--;
-
-                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado
-                fseek(data_file_ptr, byteoffset, SEEK_SET);
-                write_record(data_file_ptr, curr_insertion, is_fixed);
-            }
-        }
-
-        else {
-            long int top_byte_offset = file_header.big_top;
-
-            if (top_byte_offset == EMPTY) {
-                fseek(data_file_ptr, file_header.next_byteoffset, SEEK_SET);
-
-                write_record(data_file_ptr, curr_insertion, is_fixed);
-
-                // Colocar o byteoffset do ultimo disponivel antes de ser atualizado,
-                // ou seja, o byteoffset em que comeca o reg. que acabou de ser escrito
-                node_to_add.byteoffset = file_header.next_byteoffset;
-
-                file_header.next_byteoffset = ftell(data_file_ptr);
-            }
-
-            else { // Tentar reutilizar espacos de registro log. removido, se couber o novo reg.
-                // Posicionar ptr no campo de tamanho do reg. removido.
-                fseek(data_file_ptr, top_byte_offset + sizeof(char), SEEK_SET);
-
-                int max_reusable_space = 0;
-
-                fread(&max_reusable_space, sizeof(int), 1, data_file_ptr);
-
-                // Se couber no espaco de worst fit, reutilize-o
-                if (evaluate_record_size(curr_insertion, is_fixed) <= max_reusable_space) {
-                    // Atualizar topo da lista de removidos e sua qtd
-                    fread(&file_header.big_top, sizeof(long int), 1, data_file_ptr);
-                    file_header.num_removed--;
-
-                    curr_insertion.size = max_reusable_space;
-
-                    // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
-                    fseek(data_file_ptr, top_byte_offset, SEEK_SET);
-                    write_record(data_file_ptr, curr_insertion, is_fixed);
-
-                    // Coloque o byteoffset do reg. cujo espaco foi reaproveitado, 
-                    // ou seja, o byteoffset esta no antigo topo da lista de reg. log. removidos
-                    node_to_add.byteoffset = top_byte_offset;
-
-                    // Preencher espaco que sobrou do registro
-                    for (int i = 0; i < max_reusable_space - evaluate_record_size(curr_insertion, is_fixed); i++) {
-                        fputc(GARBAGE, data_file_ptr);
-                    }
-                }
-
-                else {
-                    // Nao coube no maior espaco disponivel para reutilizar; inserir no fim.
-                    fseek(data_file_ptr, 0, SEEK_END);
-                    write_record(data_file_ptr, curr_insertion, is_fixed);
-
-                    node_to_add.byteoffset = file_header.next_byteoffset;
-
-                    file_header.next_byteoffset = ftell(data_file_ptr);
-                }
-            }
-        }
-
-        insert_into_index_array(&index, node_to_add);
+        insert_into(data_file_ptr, &index, curr_insertion, is_fixed, &file_header);
         free_record(curr_insertion);
     }
 
@@ -563,10 +448,11 @@ int update_records_command(char *data_filename, char *index_filename, int total_
             update_fixed_filtered(data_stream, &index, filter, params, &file_header);
         }
 
+        // Para reg. de tam. variavel, teste se ha espaco no registro a partir de seu tamanho. Se nao,
+        // precisa chamar a remocao (6) para tirar o reg. antigo daquele espaco e a insercao (7) para
+        // encontrar um espaco pertinente ao reg. atualizado.
         else {
-            // Ja para reg. de tam. variavel, teste se ha espaco no registro a partir de seu tamanho. Se nao,
-            // precisa chamar a remocao (6) para tirar o reg. antigo daquele espaco e a insercao (7) para
-            // encontrar um espaco pertinente ao reg. atualizado.
+            update_variable_filtered(data_stream, &index, filter, params, &file_header);
         }
 
         free_record(filter);

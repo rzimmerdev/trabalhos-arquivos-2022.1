@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 
 #include "record.h"
 #include "table.h"
@@ -382,12 +383,12 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
 }
 
 
-int remove_where(FILE *stream, index_array index, data filter, bool is_fixed) {
+int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed) {
     fseek(stream, 0, SEEK_SET);
     header header_template = fread_header(stream, is_fixed);
 
-    int num_removed = is_fixed ? remove_fixed_filtered(stream, &index, filter, &header_template) :
-                             remove_variable_filtered(stream, &index, filter, &header_template);
+    int num_removed = is_fixed ? remove_fixed_filtered(stream, index, filter, &header_template) :
+                             remove_variable_filtered(stream, index, filter, &header_template);
 
     if (num_removed > 0) {
         header_template.num_removed += num_removed;
@@ -396,6 +397,102 @@ int remove_where(FILE *stream, index_array index, data filter, bool is_fixed) {
     header_template.status[0] = OK_STATUS[0];
     write_header(stream, header_template, is_fixed, true);
     return 1;
+}
+
+int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template) {
+    index_node node_to_add = {.id = new_record.id, .rrn = EMPTY, .byteoffset = EMPTY};
+
+    if (is_fixed) {
+        // Topo da pilha - contem ultimo registro log. removido
+        int top_rrn = template->top;
+
+        if (top_rrn == EMPTY) {
+            int byteoffset = template->next_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+            fseek(stream, byteoffset, SEEK_SET);
+            write_record(stream, new_record, is_fixed);
+
+            // RRN do reg. inserido
+            node_to_add.rrn = template->next_rrn;
+
+            template->next_rrn++;
+        }
+
+        else { // Usar abordagem dinamica de reuso de espacos
+            int byteoffset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+
+            node_to_add.rrn = top_rrn;
+
+            // Posicionar ptr no campo de prox. registro logicamente removido
+            fseek(stream, byteoffset + 1, SEEK_SET);
+
+            // Atualizar topo da pilha de removidos e sua qtd
+            fread(&template->top, sizeof(int), 1, stream);
+            template->num_removed--;
+
+            // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado
+            fseek(stream, byteoffset, SEEK_SET);
+            write_record(stream, new_record, is_fixed);
+        }
+    }
+
+    else {
+        long int top_byte_offset = template->big_top;
+
+        if (top_byte_offset == EMPTY) {
+            fseek(stream, template->next_byteoffset, SEEK_SET);
+
+            write_record(stream, new_record, is_fixed);
+
+            // Colocar o byteoffset do ultimo disponivel antes de ser atualizado,
+            // ou seja, o byteoffset em que comeca o reg. que acabou de ser escrito
+            node_to_add.byteoffset = template->next_byteoffset;
+
+            template->next_byteoffset = ftell(stream);
+        }
+
+        else { // Tentar reutilizar espacos de registro log. removido, se couber o novo reg.
+            // Posicionar ptr no campo de tamanho do reg. removido.
+            fseek(stream, top_byte_offset + sizeof(char), SEEK_SET);
+
+            int max_reusable_space = 0;
+
+            fread(&max_reusable_space, sizeof(int), 1, stream);
+
+            // Se couber no espaco de worst fit, reutilize-o
+            if (evaluate_record_size(new_record, is_fixed) <= max_reusable_space) {
+                // Atualizar topo da lista de removidos e sua qtd
+                fread(&template->big_top, sizeof(long int), 1, stream);
+                template->num_removed--;
+
+                new_record.size = max_reusable_space;
+
+                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
+                fseek(stream, top_byte_offset, SEEK_SET);
+                write_record(stream, new_record, is_fixed);
+
+                // Coloque o byteoffset do reg. cujo espaco foi reaproveitado, 
+                // ou seja, o byteoffset esta no antigo topo da lista de reg. log. removidos
+                node_to_add.byteoffset = top_byte_offset;
+
+                // Preencher espaco que sobrou do registro
+                for (int i = 0; i < max_reusable_space - evaluate_record_size(new_record, is_fixed); i++) {
+                    fputc(GARBAGE, stream);
+                }
+            }
+
+            else {
+                // Nao coube no maior espaco disponivel para reutilizar; inserir no fim.
+                fseek(stream, 0, SEEK_END);
+                write_record(stream, new_record, is_fixed);
+
+                node_to_add.byteoffset = template->next_byteoffset;
+
+                template->next_byteoffset = ftell(stream);
+            }
+        }
+    }
+
+    insert_into_index_array(index, node_to_add);
 }
 
 void update_record(data *record, data params) {
@@ -419,19 +516,97 @@ void update_record(data *record, data params) {
     }
 
     if (params.city != NULL) {
-        record->city = params.city;
+        // So se houver alteracao no campo
+        if (record->city) {
+            free(record->city);
+        }
+
+        record->city = (char *) malloc((strlen(params.city) + 1) * sizeof(char));
+        memcpy(record->city, params.city, strlen(params.city) + 1);
         record->city_size = strlen(record->city);
     }
 
     if (params.brand != NULL) {
-        record->brand = params.brand;
+        if (record->brand) {
+            free(record->brand);
+        }
+
+        record->brand = (char *) malloc((strlen(params.brand) + 1) * sizeof(char));
+        memcpy(record->brand, params.brand, strlen(params.brand) + 1);
         record->brand_size = strlen(record->brand);
     }
 
     if (params.model != NULL) {
-        record->model = params.model;
+        if (record->model) {
+            free(record->model);
+        }
+
+        record->model = (char *) malloc((strlen(params.model) + 1) * sizeof(char));
+        memcpy(record->model, params.model, strlen(params.model) + 1);
         record->model_size = strlen(record->model);
     }
+}
+
+void update_variable(FILE *stream, index_array *index, data record, data params, long int byteoffset, header *template) {
+    fseek(stream, byteoffset, SEEK_SET);
+
+    // Arquivo desatualizado cujos dados estao escritos em disco
+    data record_to_update = fread_record(stream, false);
+
+    // Atualizando em RAM os dados para o registro (colocando dados atualizados)
+    update_record(&record_to_update, params);
+
+    // Se couber no espaco do reg.
+    if (evaluate_record_size(record_to_update, false) <= record_to_update.size) {
+        fseek(stream, byteoffset, SEEK_SET);
+        write_record(stream, record_to_update, false);
+
+        // Preencher espaco que sobrou do registro
+        for (int i = 0; i < record_to_update.size - evaluate_record_size(record_to_update, false); i++) {
+            fputc(GARBAGE, stream);
+        }
+    }
+
+    else {
+
+    }
+}
+
+int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
+    int num_updated = 0;
+
+    if (filter.id != EMPTY_FILTER) {
+        long int byteoffset = find_by_id(*index, filter.id).byteoffset;
+        fseek(stream, byteoffset, SEEK_SET);
+        data record = fread_record(stream, false);
+
+        int result = verify_record(record, filter);
+        if (result == ERROR_CODE)
+            return ERROR_CODE;
+
+        update_variable(stream, index, record, params, byteoffset, template);
+        return ++num_updated;
+    }
+    else {
+
+        long int byteoffset = VARIABLE_HEADER;
+        while (byteoffset < template->next_byteoffset - 1) {
+            fseek(stream, byteoffset, SEEK_SET);
+            data record = fread_record(stream, false);
+
+            int status = verify_record(record, filter);
+            if (status == ERROR_CODE) {
+                byteoffset += record.size + 5;
+                continue;
+            }
+
+            remove_variable(stream, index, record, byteoffset, template);
+            byteoffset += record.size + 5;
+            num_updated++;
+        }
+    }
+
+    return num_updated;
 }
 
 void update_fixed(FILE *stream, index_array *index, data record, data params, int rrn, header *template) {
