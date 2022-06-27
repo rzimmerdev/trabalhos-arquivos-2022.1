@@ -371,7 +371,6 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
                 byteoffset += record.size + 5;
                 continue;
             }
-            printf("e");
 
             remove_variable(stream, index, record, byteoffset, template);
             byteoffset += record.size + 5;
@@ -403,7 +402,7 @@ int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed
     index_node node_to_add = {.id = new_record.id, .rrn = EMPTY, .byteoffset = EMPTY};
 
     if (is_fixed) {
-        // Topo da pilha - contem ultimo registro log. removido
+        // Stack's top - it contains the last logically removed record
         int top_rrn = template->top;
 
         if (top_rrn == EMPTY) {
@@ -411,25 +410,26 @@ int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed
             fseek(stream, byteoffset, SEEK_SET);
             write_record(stream, new_record, is_fixed);
 
-            // RRN do reg. inserido
+            // Inserted record's RRN
             node_to_add.rrn = template->next_rrn;
 
             template->next_rrn++;
         }
 
-        else { // Usar abordagem dinamica de reuso de espacos
+        // Dynamic approach of space reuse 
+        else { 
             int byteoffset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
 
             node_to_add.rrn = top_rrn;
 
-            // Posicionar ptr no campo de prox. registro logicamente removido
+            // Put ptr on 'next logically removed' field
             fseek(stream, byteoffset + 1, SEEK_SET);
 
-            // Atualizar topo da pilha de removidos e sua qtd
+            // Update the top of the stack that indicate the removed records and its amount
             fread(&template->top, sizeof(int), 1, stream);
             template->num_removed--;
 
-            // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado
+            // Put data file's ptr on the beginning of the record whose space will be reused 
             fseek(stream, byteoffset, SEEK_SET);
             write_record(stream, new_record, is_fixed);
         }
@@ -443,45 +443,47 @@ int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed
 
             write_record(stream, new_record, is_fixed);
 
-            // Colocar o byteoffset do ultimo disponivel antes de ser atualizado,
-            // ou seja, o byteoffset em que comeca o reg. que acabou de ser escrito
+            // Set with the byteoffset of the last available before update, i.e., 
+            // the byteoffset in which begins the record that was just written
             node_to_add.byteoffset = template->next_byteoffset;
 
             template->next_byteoffset = ftell(stream);
         }
 
-        else { // Tentar reutilizar espacos de registro log. removido, se couber o novo reg.
-            // Posicionar ptr no campo de tamanho do reg. removido.
+        // Try to reuse logically removed's spaces, if the new record fits in there
+        else { 
+            // Put ptr on 'removed record's size' field
             fseek(stream, top_byte_offset + sizeof(char), SEEK_SET);
 
             int max_reusable_space = 0;
 
             fread(&max_reusable_space, sizeof(int), 1, stream);
 
-            // Se couber no espaco de worst fit, reutilize-o
+            // If new record fits 'worst fit' space, reuse it
             if (evaluate_record_size(new_record, is_fixed) <= max_reusable_space) {
-                // Atualizar topo da lista de removidos e sua qtd
+                // Update top of removed's list and its amt
                 fread(&template->big_top, sizeof(long int), 1, stream);
                 template->num_removed--;
 
                 new_record.size = max_reusable_space;
 
-                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
+                // Put data file ptr on beginning of the record whose space will be reused
                 fseek(stream, top_byte_offset, SEEK_SET);
                 write_record(stream, new_record, is_fixed);
 
-                // Coloque o byteoffset do reg. cujo espaco foi reaproveitado, 
-                // ou seja, o byteoffset esta no antigo topo da lista de reg. log. removidos
+                // Set with byteoffset of the record whose space was reused, i.e., the
+                // byteoffset is in the old logically removed's list top
+
                 node_to_add.byteoffset = top_byte_offset;
 
-                // Preencher espaco que sobrou do registro
+                // Fill record's remaining space with garbage
                 for (int i = 0; i < max_reusable_space - evaluate_record_size(new_record, is_fixed); i++) {
                     fputc(GARBAGE, stream);
                 }
             }
 
             else {
-                // Nao coube no maior espaco disponivel para reutilizar; inserir no fim.
+                // It has not fit on the biggest space available to reuse; put record on the end.
                 fseek(stream, 0, SEEK_END);
                 write_record(stream, new_record, is_fixed);
 
@@ -516,7 +518,7 @@ void update_record(data *record, data params) {
     }
 
     if (params.city != NULL) {
-        // So se houver alteracao no campo
+        // Only if the field has changed!
         if (record->city) {
             free(record->city);
         }
@@ -550,14 +552,14 @@ void update_record(data *record, data params) {
 void update_variable(FILE *stream, index_array *index, data record, data params, long int byteoffset, header *template) {
     fseek(stream, byteoffset, SEEK_SET);
 
-    // Arquivo desatualizado cujos dados estao escritos em disco
+    // Outdated file, whose data are written in disk
     data record_to_update = fread_record(stream, false);
     int old_id = record_to_update.id;
 
-    // Atualizando em RAM os dados para o registro (colocando dados atualizados)
+    // Updating in RAM the data for the record (putting updated data in it now)
     update_record(&record_to_update, params);
 
-    // Se couber no espaco do reg.
+    // If fits record's space, 
     if (evaluate_record_size(record_to_update, false) <= record_to_update.size) {
         // Make an update on index array
         if (params.id != EMPTY_FILTER) {
@@ -572,7 +574,7 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
         fseek(stream, byteoffset, SEEK_SET);
         write_record(stream, record_to_update, false);
 
-        // Preencher espaco que sobrou do registro
+        // Fill record's remaining space (unused)
         for (int i = 0; i < record_to_update.size - evaluate_record_size(record_to_update, false); i++) {
             fputc(GARBAGE, stream);
         }
@@ -655,11 +657,12 @@ void update_fixed(FILE *stream, index_array *index, data record, data params, in
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
     int num_updated = 0;
 
-    /* Buscar os registros que dao match usando os criterios contidos
-    * em filter.
-    * Se o campo id estiver preenchido, buscar o registro no arquivo de indice;
-    * se nao tem o id como parametro de busca, procure sequencialmente no
-    * arquivo de dados, comparando os criterios.*/
+    /*
+     * Search for records that match filter's criteria. If the field 'id' is filled, search
+     * the record on index file;
+     * if you don't have 'id' as search's parameter, look out sequentially on data file, 
+     * comparing the wanted criteria.
+    */
     if (filter.id != EMPTY_FILTER) {
 
         int rrn = find_by_id(*index, filter.id).rrn;
@@ -669,15 +672,17 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
         long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
         fseek(stream, byteoffset, SEEK_SET);
 
-        // Acesso direto no arq. de dados
+        // Direct access on data file
         data record = fread_record(stream, true);
         int result = verify_record(record, filter);
         if (result == ERROR_CODE)
             return ERROR_CODE;
 
-        // Alterar os registros que dao match com os valores contidos
-        // em params.
-        // Se for para registro de tamanho fixo, basta realizar a alteracao, porque sempre cabe no espaco.
+        /*
+         * Change records that match the values contained on params.
+         * If we have padronized size records (called here as 'fixed'), then you can
+         * simply make the alteration, because it's always suitable for the spot we want to put it.
+        */
         update_fixed(stream, index, record, params, rrn, template);
 
         return ++num_updated;
