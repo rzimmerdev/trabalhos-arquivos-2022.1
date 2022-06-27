@@ -19,8 +19,6 @@
 #include "../lib/utils.h"
 #include "commands.h"
 
-// TODO: Add more comments
-
 // Available op codes to be used for eight different commands
 typedef enum Command_t {
     CREATE_TABLE = 1,
@@ -33,7 +31,8 @@ typedef enum Command_t {
     UPDATE_RECORDS = 8
 } command;
 
-// Possible filetype encodings to be used when reading or writing binary files
+// Possible filetype encodings to be used when reading or writing binary files:
+// file has constant size (called FIXED) or it can change and depends on each specific record (called VARIABLE)
 typedef enum Filetype_t {
     FIXED = 1,
     VARIABLE = 0
@@ -41,9 +40,11 @@ typedef enum Filetype_t {
 
 
 int main() {
+    // Choosing funcionality 
     int option, filetype;
     scanf("%d ", &option);
 
+    // Choosing file type (is its size constant/is fixed or can it change/is variable?)
     char *file_type_str = scan_word();
     if (file_type_str[4] == '1') {
         filetype = FIXED;
@@ -60,6 +61,7 @@ int main() {
             char *csv_filename = scan_word();
             char *out_filename = scan_word();
 
+            // Make data file (the `out` one)
             int status = create_table_command(csv_filename, out_filename, filetype);
             free(csv_filename);
 
@@ -72,6 +74,7 @@ int main() {
             break;
         }
         case SELECT: {
+            // Specify in which data file you want to recover all records' data (but only show the NOT_REMOVED ones)
             char *bin_filename = scan_word();
 
             int status = select_command(bin_filename, filetype);
@@ -84,7 +87,8 @@ int main() {
             break;
         }
         case SELECT_WHERE: {
-
+            // Specify in which data file you want to recover the records' data. Also, get the criteria to show them
+            // (we will display only the ones that match search's parameters)
             char *bin_filename = scan_word();
             int total_parameters; scanf("%d ", &total_parameters);
 
@@ -99,7 +103,8 @@ int main() {
             break;
         }
         case SELECT_ID: {
-
+            // Specify in which data file you want to recover the record's info. Also, get its exact spot on binary file
+            // by its RRN. Only type 1 files (FIXED ones) can use this command.
             char *bin_filename = scan_word();
             int rrn; scanf("%d", &rrn);
 
@@ -114,7 +119,12 @@ int main() {
             break;
         }
         case CREATE_INDEX: {
-
+            /* Specify which data file you want to indexate (create a bin. file that will keep record of 
+             * all records' primary keys (IDs') and RRNs/byteoffsets (used to find them on data file)), so we can find
+             * them faster.
+             * index with id + RRN -> only if working with constant sized's records (FIXED)
+             * index with id + byteoffset -> only if working with variable sized's records (VARIABLE)
+            */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
             char data_path[4 + (int) strlen(data_filename)];
@@ -127,7 +137,6 @@ int main() {
             int status = create_index_command(data_path, index_path, filetype);
             free(data_filename);
             free(index_filename);
-
             if (status == SUCCESS_CODE)
                 binarioNaTela(index_path);
             else if (status == ERROR_CODE)
@@ -138,7 +147,8 @@ int main() {
             break;
         }
         case REMOVE_RECORDS: {
-
+            // Specify in which data file you want to delete records. It will also be necessary to get its index file so
+            // we can update it (removing in there the primary key and the RRN/byteoffset of the deleted records). 
             char *data_filename = scan_word();
             char *index_filename = scan_word();
             char data_path[4 + (int) strlen(data_filename)];
@@ -165,6 +175,8 @@ int main() {
             break;
         }
         case INSERT_RECORDS: {
+            // Specify in which data file you want to insert records. It will also be necessary to get its index file so
+            // we can update it (adding in there the primary key and the RRN/byteoffset of the new inserted records).
             char *data_filename = scan_word();
             char *index_filename = scan_word();
             
@@ -199,6 +211,9 @@ int main() {
             break;
         }
         case UPDATE_RECORDS: {
+            // Specify in which data file you want to update records. It will also be necessary to get its index file so
+            // we can update it (sometimes removing & re-adding in there the primary key and the RRN/byteoffset of the 
+            // updated records).
             char *data_filename = scan_word();
             char *index_filename = scan_word();
             
