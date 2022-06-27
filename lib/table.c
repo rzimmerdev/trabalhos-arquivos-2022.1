@@ -574,9 +574,18 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
     }
 
     else {
-        data filter = {.id = old_id};
+        // Se nao coube, vamos inserir no final. Entao, eh preciso obter o tamanho
+        // desse novo registro para inseri-lo
+        record_to_update.size = evaluate_record_size(record_to_update, false);
+        data filter = {.id = old_id, .year = EMPTY_FILTER, .total = EMPTY_FILTER, .state = EMPTY_FILTER,
+                     .city = NULL, .model = NULL, .brand = NULL};
+        
         remove_where(stream, index, filter, false);
+        fseek(stream, 0, SEEK_SET);
+        *template = fread_header(stream, false);
         insert_into(stream, index, record_to_update, false, template);
+        fseek(stream, 0, SEEK_SET);
+        write_header(stream, *template, false, true);
     }
 
     free_record(record_to_update);

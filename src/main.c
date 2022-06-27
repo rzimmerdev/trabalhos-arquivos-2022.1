@@ -137,7 +137,6 @@ int main() {
 
             break;
         }
-
         case REMOVE_RECORDS: {
 
             char *data_filename = scan_word();
@@ -165,7 +164,6 @@ int main() {
 
             break;
         }
-
         case INSERT_RECORDS: {
             char *data_filename = scan_word();
             char *index_filename = scan_word();
@@ -200,7 +198,6 @@ int main() {
 
             break;
         }
-
         case UPDATE_RECORDS: {
             char *data_filename = scan_word();
             char *index_filename = scan_word();
