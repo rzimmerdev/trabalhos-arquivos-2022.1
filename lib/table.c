@@ -394,7 +394,6 @@ int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed) {
         header_template.num_removed += num_removed;
     }
 
-    header_template.status[0] = OK_STATUS[0];
     write_header(stream, header_template, is_fixed, true);
     return header_template.num_removed > 0 ? SUCCESS_CODE : NOT_REMOVED;
 }
