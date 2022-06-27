@@ -552,12 +552,23 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
 
     // Arquivo desatualizado cujos dados estao escritos em disco
     data record_to_update = fread_record(stream, false);
+    int old_id = record_to_update.id;
 
     // Atualizando em RAM os dados para o registro (colocando dados atualizados)
     update_record(&record_to_update, params);
 
     // Se couber no espaco do reg.
     if (evaluate_record_size(record_to_update, false) <= record_to_update.size) {
+        // Make an update on index array
+        if (params.id != EMPTY_FILTER) {
+            remove_from_index_array(index, record.id);
+            index_node new_node = {};
+            new_node.id = params.id;
+            new_node.byteoffset = byteoffset;
+
+            insert_into_index_array(index, new_node);
+        }
+
         fseek(stream, byteoffset, SEEK_SET);
         write_record(stream, record_to_update, false);
 
@@ -568,8 +579,12 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
     }
 
     else {
-
+        data filter = {.id = old_id};
+        remove_where(stream, index, filter, false);
+        insert_into(stream, index, record_to_update, false, template);
     }
+
+    free_record(record_to_update);
 }
 
 int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
@@ -585,8 +600,12 @@ int update_variable_filtered(FILE *stream, index_array *index, data filter, data
             return ERROR_CODE;
 
         update_variable(stream, index, record, params, byteoffset, template);
+
+        free_record(record);
+
         return ++num_updated;
     }
+
     else {
 
         long int byteoffset = VARIABLE_HEADER;
@@ -600,9 +619,11 @@ int update_variable_filtered(FILE *stream, index_array *index, data filter, data
                 continue;
             }
 
-            remove_variable(stream, index, record, byteoffset, template);
+            update_variable(stream, index, record, params, byteoffset, template);
             byteoffset += record.size + 5;
             num_updated++;
+
+            free_record(record);
         }
     }
 

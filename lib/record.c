@@ -219,15 +219,15 @@ int evaluate_record_size(data record, bool is_fixed) {
     
     int size = 22; // Tamanho considerando apenas informacoes de campos de tamanho fixo
 
-    if (strlen(record.city)) {
+    if (record.city && strlen(record.city)) {
         size += 5 + strlen(record.city); // Somar 5 para tamanho + codigo do campo variavel
     }
 
-    if (strlen(record.brand)) {
+    if (record.brand && strlen(record.brand)) {
         size += 5 + strlen(record.brand);
     }
 
-    if (strlen(record.model)) {
+    if (record.model && strlen(record.model)) {
         size += 5 + strlen(record.model);
     }
 
