@@ -25,19 +25,19 @@ int create_table_command(char *csv_filename, char *out_filename, bool is_fixed) 
      * Returns:
      *     int: Returns SUCCESS_CODE if read and write operations were successful, and ERROR_CODE otherwise.
      */
-    FILE *csvfile_ptr = fopen(csv_filename, "r");
+    FILE *csvstream = fopen(csv_filename, "r");
 
     // Verify if input and output files can be found
-    if (csvfile_ptr == NULL)
+    if (csvstream == NULL)
         return ERROR_CODE;
 
-    FILE *binfile_ptr = fopen(out_filename, "wb");
+    FILE *binstream = fopen(out_filename, "wb");
 
     // Function to read data from CSV and write to binary encoded file, given desired encoding type.
-    csv_to_bin(csvfile_ptr, binfile_ptr, is_fixed);
+    csv_to_bin(csvstream, binstream, is_fixed);
 
-    fclose(csvfile_ptr);
-    fclose(binfile_ptr);
+    fclose(csvstream);
+    fclose(binstream);
 
     return SUCCESS_CODE;
 }
@@ -53,14 +53,14 @@ int select_command(char *bin_filename, bool is_fixed) {
      * Returns:
      *     int: Returns SUCCESS_CODE if table could be accessed, and ERROR_CODE otherwise.
      */
-    FILE *file_ptr = fopen(bin_filename, "rb");
+    FILE *stream = fopen(bin_filename, "rb");
 
-    if (file_ptr == NULL)
+    if (stream == NULL)
         return ERROR_CODE;
 
-    int status = select_table(file_ptr, is_fixed);
+    int status = select_table(stream, is_fixed);
 
-    fclose(file_ptr);
+    fclose(stream);
 
     return status;
 }
@@ -177,12 +177,12 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
      *      int: Returns SUCCESS_CODE if any table record could be read,
      *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise.
      */
-    FILE *file_ptr = fopen(bin_filename, "rb");
+    FILE *stream = fopen(bin_filename, "rb");
 
-    if (file_ptr == NULL )
+    if (stream == NULL )
         return ERROR_CODE;
 
-    header file_header = fread_header(file_ptr, is_fixed);
+    header file_header = fread_header(stream, is_fixed);
 
     if (file_header.status[0] == BAD_STATUS[0])
         return ERROR_CODE;
@@ -191,10 +191,10 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
     // record in given file.
     data template = scanf_filter(total_parameters);
 
-    int status = select_where(file_ptr, template, file_header, is_fixed);
+    int status = select_where(stream, template, file_header, is_fixed);
 
     free_record(template);
-    fclose(file_ptr);
+    fclose(stream);
 
     return status;
 }
@@ -211,12 +211,12 @@ int select_rrn_command(char *bin_filename, int rrn) {
      *      int: Returns SUCCESS_CODE if table record could be read,
      *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise
      */
-    FILE *file_ptr = fopen(bin_filename, "rb");
+    FILE *stream = fopen(bin_filename, "rb");
 
-    if (file_ptr == NULL)
+    if (stream == NULL)
         return ERROR_CODE;
 
-    header file_header = fread_header(file_ptr, true);
+    header file_header = fread_header(stream, true);
 
     // Calculate RRN based on the generic formulae below:
     int byte_offset = rrn * 97 + FIXED_HEADER;
@@ -226,10 +226,10 @@ int select_rrn_command(char *bin_filename, int rrn) {
     }
 
     // Navigate to byte_offset calculated position
-    fseek(file_ptr, byte_offset, SEEK_SET);
+    fseek(stream, byte_offset, SEEK_SET);
 
-    data record = fread_record(file_ptr, true);
-    fclose(file_ptr);
+    data record = fread_record(stream, true);
+    fclose(stream);
 
     if (record.removed != IS_REMOVED) {
         printf_record(record);
@@ -241,7 +241,12 @@ int select_rrn_command(char *bin_filename, int rrn) {
 }
 
 
+
 int verify_stream(char *data_filename, char *index_filename, bool verify_index) {
+    /*
+     * Generic function to verify stream of record data and record indices.
+     * Uses the verify_index boolean value to decide whether to verify already existing index file or not
+     */
     FILE *data_stream = fopen(data_filename, "rb+");
 
     if (data_stream == NULL)
@@ -281,12 +286,13 @@ int create_index_command(char *data_filename, char *index_filename, bool is_fixe
 
     if (verify_stream(data_filename, index_filename, false) == ERROR_CODE)
         return ERROR_CODE;
-    FILE *original_file_ptr = fopen(data_filename, "rb");
-    FILE *index_file_ptr = fopen(index_filename, "wb");
-
-    create_index(original_file_ptr, index_file_ptr, is_fixed);
-    fclose(original_file_ptr);
-    fclose(index_file_ptr);
+    FILE *original_stream = fopen(data_filename, "rb");
+    FILE *index_stream = fopen(index_filename, "wb");
+    update_status(index_stream, BAD_STATUS);
+    create_index(original_stream, index_stream, is_fixed);
+    update_status(index_stream, OK_STATUS);
+    fclose(original_stream);
+    fclose(index_stream);
     return SUCCESS_CODE;
 }
 
@@ -295,7 +301,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
-    FILE *data_file_ptr = fopen(data_filename, "rb+");
+    FILE *data_stream = fopen(data_filename, "rb+");
 
     // Bring index to RAM
     index_array index = index_to_array(index_filename, is_fixed);
@@ -304,7 +310,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        remove_where(data_file_ptr, &index, filter, is_fixed);
+        remove_where(data_stream, &index, filter, is_fixed);
         free_record(filter);
     }
 
@@ -312,8 +318,7 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
     array_to_index(index, is_fixed);
 
     free_index_array(&index);
-
-    fclose(data_file_ptr);
+    fclose(data_stream);
 
     return SUCCESS_CODE;
 }
@@ -385,8 +390,8 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
-    FILE *data_file_ptr = fopen(data_filename, "rb+");
-    header file_header = fread_header(data_file_ptr, is_fixed);
+    FILE *data_stream = fopen(data_filename, "rb+");
+    header file_header = fread_header(data_stream, is_fixed);
 
     // Loading index to RAM
     index_array index = index_to_array(index_filename, is_fixed);
@@ -395,20 +400,20 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     for (int i = 0; i < total_insertions; i++) {
         data curr_insertion = read_record_entry(is_fixed);
 
-        insert_into(data_file_ptr, &index, curr_insertion, is_fixed, &file_header);
+        insert_into(data_stream, &index, curr_insertion, is_fixed, &file_header);
         free_record(curr_insertion);
     }
 
     // Writing header on the file to disk
-    write_header(data_file_ptr, file_header, is_fixed, 0);
+    write_header(data_stream, file_header, is_fixed, 0);
 
     // To finish writing on the data file, set status as OK_STATUS
-    update_status(data_file_ptr, OK_STATUS);
+    update_status(data_stream, OK_STATUS);
 
     // Write index on the file to disk
     array_to_index(index, is_fixed);
 
-    fclose(data_file_ptr);
+    fclose(data_stream);
     free_index_array(&index);
     
     return SUCCESS_CODE;

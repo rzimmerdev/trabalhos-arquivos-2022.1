@@ -40,7 +40,6 @@ void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite)
 
 
     // Set next_rrn or next_byteoffset in header to 0, as placeholder header should only be written
-    // if
     if (is_fixed) {
         fwrite(&placeholder.next_rrn, sizeof(int), 1, stream);
     } else {
@@ -379,53 +378,71 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
 
 
 int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed) {
+    // Generic function to remove multiple records from a table, using reference index array,
+    // as well as filter record to compare values to.
+    // All records to be removed will therefore match at least all inputs given in the filter record.
     fseek(stream, 0, SEEK_SET);
     header header_template = fread_header(stream, is_fixed);
 
+    // Decide which type of removal to perform, be it using Worst Fit linked list for variable sized records
+    // or first fit for fixed size records (stack).
     int num_removed = is_fixed ? remove_fixed_filtered(stream, index, filter, &header_template) :
                              remove_variable_filtered(stream, index, filter, &header_template);
 
+    // Count total removed records and return status accordingly.
     if (num_removed > 0) {
         header_template.num_removed += num_removed;
     }
 
     header_template.status[0] = OK_STATUS[0];
     write_header(stream, header_template, is_fixed, true);
-    return 1;
+    return header_template.num_removed > 0 ? SUCCESS_CODE : NOT_REMOVED;
 }
 
 int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template) {
+    /*
+     * Inserts a new record field into the given table, as well as into the array of indexes.
+     * Uses the header top element to find next available space, or insert into end of file if no
+     * empty space within the removed fields is available.
+     * Uses the same organization used in the remove_where functionality, which means inserts according to Worse Fit
+     * in variable sized tables and First fit in fixed sized tables.
+     */
+
     index_node node_to_add = {.id = new_record.id, .rrn = EMPTY, .byteoffset = EMPTY};
 
     if (is_fixed) {
-        // Topo da pilha - contem ultimo registro log. removido
+        // Header top corresponds to the removed records stack top
         int top_rrn = template->top;
 
+        // Decide if stack is empty, inserting directly into end of file
         if (top_rrn == EMPTY) {
             int byteoffset = template->next_rrn * FIXED_REG_SIZE + FIXED_HEADER;
             fseek(stream, byteoffset, SEEK_SET);
             write_record(stream, new_record, is_fixed);
 
-            // RRN do reg. inserido
+            // New record rnn is equal to header next_rrn field
             node_to_add.rrn = template->next_rrn;
 
             template->next_rrn++;
         }
 
-        else { // Usar abordagem dinamica de reuso de espacos
+        // Use dynamic approach to insert new record into already available space inside the table
+        else {
             int byteoffset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
 
+            // As all records have the same size, access stack top to retrieve next rrn of available space.
             node_to_add.rrn = top_rrn;
 
-            // Posicionar ptr no campo de prox. registro logicamente removido
+            // Seek to next available offset based on template top field
             fseek(stream, byteoffset + 1, SEEK_SET);
 
-            // Atualizar topo da pilha de removidos e sua qtd
+            // Update header field with previously empty record next pointer, as to not
+            // lose track of the stack top after the insertion is made.
             fread(&template->top, sizeof(int), 1, stream);
             template->num_removed--;
 
-            // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado
-            fseek(stream, byteoffset, SEEK_SET);
+            // Return to start of the empty record field byteoffset, and start writing record to be inserted.
+            fseek(stream, -(sizeof(int) + sizeof(char)), SEEK_CUR);
             write_record(stream, new_record, is_fixed);
         }
     }
@@ -461,11 +478,11 @@ int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed
 
                 new_record.size = max_reusable_space;
 
-                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado                
+                // Posicionar ptr do arquivo de dados no inicio do registro cujo espaco sera reutilizado
                 fseek(stream, top_byte_offset, SEEK_SET);
                 write_record(stream, new_record, is_fixed);
 
-                // Coloque o byteoffset do reg. cujo espaco foi reaproveitado, 
+                // Coloque o byteoffset do reg. cujo espaco foi reaproveitado,
                 // ou seja, o byteoffset esta no antigo topo da lista de reg. log. removidos
                 node_to_add.byteoffset = top_byte_offset;
 
@@ -578,8 +595,8 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
         // desse novo registro para inseri-lo
         record_to_update.size = evaluate_record_size(record_to_update, false);
         data filter = {.id = old_id, .year = EMPTY_FILTER, .total = EMPTY_FILTER, .state = EMPTY_FILTER,
-                     .city = NULL, .model = NULL, .brand = NULL};
-        
+                .city = NULL, .model = NULL, .brand = NULL};
+
         remove_where(stream, index, filter, false);
         fseek(stream, 0, SEEK_SET);
         *template = fread_header(stream, false);
@@ -649,7 +666,7 @@ void update_fixed(FILE *stream, index_array *index, data record, data params, in
 
     // Make an update on data file
     update_record(&record, params);
-    
+
     fseek(stream, offset, SEEK_SET);
     write_record(stream, record, true);
 
@@ -658,12 +675,13 @@ void update_fixed(FILE *stream, index_array *index, data record, data params, in
 
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
     int num_updated = 0;
-
-    /* Buscar os registros que dao match usando os criterios contidos
-    * em filter.
-    * Se o campo id estiver preenchido, buscar o registro no arquivo de indice;
-    * se nao tem o id como parametro de busca, procure sequencialmente no
-    * arquivo de dados, comparando os criterios.*/
+    /*
+     * Buscar os registros que dao match usando os criterios contidos
+     * em filter.
+     * Se o campo id estiver preenchido, buscar o registro no arquivo de indice;
+     * se nao tem o id como parametro de busca, procure sequencialmente no
+     * arquivo de dados, comparando os criterios.
+     */
     if (filter.id != EMPTY_FILTER) {
 
         int rrn = find_by_id(*index, filter.id).rrn;
