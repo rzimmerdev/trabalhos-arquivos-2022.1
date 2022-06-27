@@ -60,11 +60,15 @@ void get_file_size(FILE *stream, void *size, bool is_fixed) {
 
 
 int write_variable_field(FILE *stream, char *value, char code, int size) {
+    /*
+     * Writes variable sized field to stream, as well as calculating resulting
+     * write size based on total characters + fixed size.
+     */
     if (value && strlen(value)) {
         fwrite(&size, 4, 1, stream);
         fwrite(&code, 1, 1, stream);
         fwrite(value, 1, size, stream);
-        return size + 4 + 1;
+        return size + sizeof(int) + sizeof(char);
     }
     return 0;
 }
@@ -85,7 +89,11 @@ void write_record(FILE *stream, data record, bool is_fixed) {
      */
     char code_city = CITY_CODE, code_brand = BRAND_CODE, code_model = MODEL_CODE;
 
+    // Write the first fixed sized fields
     fwrite(&record.removed, 1, 1, stream);
+
+    // Switch the type of next removed record field,
+    // since the fixed sized record uses the rrn value, but the variable sized one uses the byteoffset
     if (is_fixed) {
         fwrite(&record.next, 4, 1, stream);
     } else {
@@ -96,14 +104,19 @@ void write_record(FILE *stream, data record, bool is_fixed) {
     fwrite(&record.year, 4, 1, stream);
     fwrite(&record.total, 4, 1, stream);
 
-    if (strlen(record.state)) {
+    // If state field exists, write it, else write empty characters
+    if (strlen(record.state))
         fwrite(record.state, 1, 2, stream);
-    }
+    else
+        fwrite("$$", 1, 2, stream);
 
+    // Write variable sized fields to record, as well as saving used space to write garbage characters
+    // at end in case the record is of fixed size.
     int city_space = write_variable_field(stream, record.city, code_city, record.city_size);
     int brand_space = write_variable_field(stream, record.brand, code_brand, record.brand_size);
     int model_space = write_variable_field(stream, record.model, code_model, record.model_size);
 
+    // If record is variable sized, all writing is done and function should return
     if (!is_fixed)
         return;
 
@@ -133,18 +146,24 @@ data fread_record(FILE *stream, bool is_fixed) {
         fread(&record.big_next, 8, 1, stream);
     }
 
+    // Reads fixed and variable sized fields into the record variable
     fread(&record.id, 4, 1, stream);
     fread(&record.year, 4, 1, stream);
     fread(&record.total, 4, 1, stream);
 
+    // Reads the state field and decide whether it is empty or not, in which case
+    // process the ~$~ garbage symbol and change it to an empty string.
     fread(record.state, 1, 2, stream);
     if (record.state[0] == GARBAGE) {
         record.state[0] = '\0';
         record.state[1] = '\0';
     }
 
+    // Calculate minimum bytes already read based on the record encoding type
     int bytes_read = is_fixed ? FIXED_MINIMUM : VARIABLE_MINIMUM;
 
+    // Iterate over possibly existing variable sized fields,
+    // which are: city, brand, or/and model
     for (int i = 0; i < 3; i++) {
         // Decide whether to write a specific variable-sized field or just skip it in the
         // final file (Field should be skipped if it is variable-sized and is also empty).
@@ -159,12 +178,14 @@ data fread_record(FILE *stream, bool is_fixed) {
             break;
         }
 
+        // If variable sized field really exists, read its size and
+        // respective field code, as some fields could possibly not exist or be empty
         int current_size;
         char current_code;
         fread(&current_size, 4, 1, stream);
         fread(&current_code, 1, 1, stream);
 
-        // Read one of the three possible variable fields into its respective variable inside the struct
+        // Read one of the three possible variable fields into its respective field inside the struct
         switch (current_code) {
             case CITY_CODE: {
                 record.city_size = current_size;
@@ -198,11 +219,21 @@ data fread_record(FILE *stream, bool is_fixed) {
 
 
 void remove_record(FILE *stream, long int record_offset, void *next, bool is_fixed) {
+    /*
+     * Function to remove a record from within the file stream, based on its
+     * offset and encoding type. Also takes in the next pointer,
+     * which should correspond to whatever next empty record already existed on the
+     * ~top~ field within the header. Then, write its offset or rrn in the ~next~ field.
+     */
+
+    // Seek to given record offset start
     fseek(stream, record_offset, SEEK_SET);
 
+    // Mark its ~removed~ field with a 'IS_REMOVED' character ('1')
     char removed = IS_REMOVED;
     fwrite(&removed, sizeof(char), 1, stream);
 
+    // Then, based on record encoding write either the next removed record rrn or its byteoffset.
     if (is_fixed)
         fwrite((int *) next, sizeof(int), 1, stream);
     else {
@@ -211,24 +242,33 @@ void remove_record(FILE *stream, long int record_offset, void *next, bool is_fix
     }
 }
 
-// Para registro de tipo 2
+
 int evaluate_record_size(data record, bool is_fixed) {
+    /*
+     * Calculate record size field based on its encoding and data.
+     */
+
+    // If record encoding is of type fixed, return fixed size.
     if (is_fixed) {
         return FIXED_REG_SIZE;
     }
-    
-    int size = 22; // Tamanho considerando apenas informacoes de campos de tamanho fixo
 
+    // Else, start counting based on minimum variable size minus the status and size fields, which amount to size 5;
+    int size = VARIABLE_MINIMUM - sizeof(char) - sizeof(int);
+
+    // Then, increment size based on remaining variable sized fields
+    // The size for each individual variable sized field is equivalent to
+    // the size of its code + the size of the integer counting its size and the size of all its characters
     if (record.city && strlen(record.city)) {
-        size += 5 + strlen(record.city); // Somar 5 para tamanho + codigo do campo variavel
+        size += sizeof(char) + sizeof(int) + strlen(record.city);
     }
 
     if (record.brand && strlen(record.brand)) {
-        size += 5 + strlen(record.brand);
+        size += sizeof(char) + sizeof(int) + strlen(record.brand);
     }
 
     if (record.model && strlen(record.model)) {
-        size += 5 + strlen(record.model);
+        size += sizeof(char) + sizeof(int) + strlen(record.model);
     }
 
     return size;
