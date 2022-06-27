@@ -60,27 +60,52 @@ int select_command(char *bin_filename, bool filetype);
 int select_where_command(char *bin_filename, int total_parameters, bool is_fixed);
 
 
-/* Prints to console a single record inside selected fixed record encoded file with given relative record number.
-     *
-     * Args:
-     *     char *bin_filename: Binary file which contains table to select specific record from
-     *     int rrn: Relative number refering to position of record in file encoded with fixed records
-     *
-     * Returns:
-     *      int: Returns SUCCESS_CODE if table record could be read,
-     *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise
-     */
+/*
+ * Prints to console a single record inside selected fixed record encoded file with given relative record number.
+ *
+ * Args:
+ *     char *bin_filename: Binary file which contains table to select specific record from
+ *     int rrn: Relative number refering to position of record in file encoded with fixed records
+ *
+ * Returns:
+ *      int: Returns SUCCESS_CODE if table record could be read,
+ *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise
+ */
 int select_rrn_command(char *bin_filename, int rrn);
 
 
+/*
+ * Creates an index table with index filename, based on records read
+ * from input data file, with specified file encoding
+ * Indexes are created as pairs of id's and rrn's or byteoffset's, depending
+ * on the input record type.
+ */
 int create_index_command(char *data_filename, char *index_filename, bool is_fixed);
 
 
+/*
+ * Deletes multiple records from data file, using a sequence of filters
+ * to select which records to be deleted. Index file is used to
+ * perform search by index, increasing speed of deletion as index
+ * values are stored in primary memory (RAM)
+ */
 int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed);
 
 
+/*
+ * Inserts multiple records into data file, as well as into an index file
+ * New records with variable size are inserted according to Worst Fit strategy into
+ * previously removed record spaces, or into the end of the file if no previously removed space is available.
+ */
 int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed);
 
+
+/*
+ * Updates a sequence of records from given console input.
+ * Updating method depends on the selected data encoding.
+ * If the new record does not fit on the previously existing space (specifically for variabel sized records),
+ * record is deleted and reinserted with updated parameters to next available space according to Worst Fit method.
+ */
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed);
 
 #endif //COMMANDS_H

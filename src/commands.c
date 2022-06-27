@@ -217,13 +217,13 @@ int select_rrn_command(char *bin_filename, int rrn) {
         return ERROR_CODE;
 
     header file_header = fread_header(stream, true);
-
-    // Calculate RRN based on the generic formulae below:
-    int byte_offset = rrn * 97 + FIXED_HEADER;
-
+    // Decide whether desired rrn is within expected range
     if ((rrn < 0) || (rrn >= file_header.next_rrn)) {
         return NOT_FOUND;
     }
+
+    // Calculate RRN based on the generic formulae below:
+    int byte_offset = rrn * 97 + FIXED_HEADER;
 
     // Navigate to byte_offset calculated position
     fseek(stream, byte_offset, SEEK_SET);
@@ -245,37 +245,44 @@ int select_rrn_command(char *bin_filename, int rrn) {
 int verify_stream(char *data_filename, char *index_filename, bool verify_index) {
     /*
      * Generic function to verify stream of record data and record indices.
-     * Uses the verify_index boolean value to decide whether to verify already existing index file or not
+     * Uses the verify_index boolean value to decide whether to verify already existing index file or not.
      */
-    FILE *data_stream = fopen(data_filename, "rb+");
 
+    // ====================================================
+    // Verify if data stream exists and its status is valid
+    // ====================================================
+    FILE *data_stream = fopen(data_filename, "rb");
+
+    // Verify if data file exists, otherwise return error
     if (data_stream == NULL)
         return ERROR_CODE;
 
-    FILE *index_stream;
-    if (verify_index)
-        index_stream = fopen(index_filename, "rb");
-
-    if (verify_index && index_stream == NULL) {
-        fclose(data_stream);
-        return ERROR_CODE;
-    }
-
+    // Access data stream and read status field from header
     int data_status = (read_status(data_stream) == OK_STATUS[0]);
-
-    int index_status;
-    if (verify_index)
-        index_status = (read_status(index_stream) == OK_STATUS[0]);
-
     fclose(data_stream);
-
-    if (verify_index)
-        fclose(index_stream);
 
     if (data_status != SUCCESS_CODE)
         return ERROR_CODE;
 
-    if (verify_index && index_status != SUCCESS_CODE)
+    // If the verify_index parameter is false, return function as the data stream has been
+    // verified to exist and not be corrupted
+    if (!verify_index)
+        return SUCCESS_CODE;
+
+    // =====================================================
+    // Verify if index stream exists and its status is valid
+    // =====================================================
+    FILE *index_stream = fopen(index_filename, "rb");
+
+    // Verify if index file exists, otherwise return error
+    if (index_stream == NULL)
+        return ERROR_CODE;
+
+    // Access data stream and read status field from header
+    int index_status = (read_status(index_stream) == OK_STATUS[0]);
+    fclose(index_stream);
+
+    if (index_status != SUCCESS_CODE)
         return ERROR_CODE;
 
     return SUCCESS_CODE;
@@ -283,114 +290,100 @@ int verify_stream(char *data_filename, char *index_filename, bool verify_index) 
 
 
 int create_index_command(char *data_filename, char *index_filename, bool is_fixed) {
+    /*
+     * Creates an index table with index_filename, based on records read
+     * from input data file, with specified file encoding
+     * Indexes are created as pairs of id's and rrn's or byteoffset's, depending
+     * on the input record type.
+     */
 
+    // Verify integrity and existance of only the data files,
+    // by marking the verify_index field as false
     if (verify_stream(data_filename, index_filename, false) == ERROR_CODE)
         return ERROR_CODE;
+
+    // Open data file for reading
     FILE *original_stream = fopen(data_filename, "rb");
+
+    // Open index file for writting, and update status field to
+    // account for any possible file corruptions
     FILE *index_stream = fopen(index_filename, "wb");
     update_status(index_stream, BAD_STATUS);
+
     create_index(original_stream, index_stream, is_fixed);
-    update_status(index_stream, OK_STATUS);
     fclose(original_stream);
+
+    // After performing operations, update status field
+    // and close index file
+    update_status(index_stream, OK_STATUS);
     fclose(index_stream);
+
     return SUCCESS_CODE;
 }
 
 int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed) {
+    /*
+     * Deletes multiple records from data file, using a sequence of filters
+     * to select which records to be deleted. Index file is used to
+     * perform search by index, increasing speed of deletion as index
+     * values are stored in primary memory (RAM)
+     */
 
+    // Verify integrity and existance of both data and index files
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
+    // Open data stream as read-write operation,
+    // and therefore update write status to bad status to keep track of possible file corruption
     FILE *data_stream = fopen(data_filename, "rb+");
+    update_status(data_stream, BAD_STATUS);
 
-    // Bring index to RAM
+    // Load index file to RAM memory, by generating array with indices
     index_array index = index_to_array(index_filename, is_fixed);
 
+    // Iterate over all filters to be read from console,
+    // and perform removal operation accordingly
     for (; total_filters > 0; total_filters--) {
+
+        // Scan filter values from console, as to perform remove operation
+        // based on the WHERE parameters (filtered record removal)
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
         remove_where(data_stream, &index, filter, is_fixed);
+
+        // Free filter read for each loop iteration
         free_record(filter);
     }
 
-    // Write on index file in disk
-    array_to_index(index, is_fixed);
-
-    free_index_array(&index);
+    // Finally, close data stream and exit remove_where command
+    update_status(data_stream, OK_STATUS);
     fclose(data_stream);
+
+    // Writes index array stored in RAM back to index file,
+    // thus greatly optimizing previous index operations speeds as
+    // writing back to index file is performed only after all deletions are made
+    array_to_index(index, is_fixed);
+    free_index_array(&index);
 
     return SUCCESS_CODE;
 }
 
-data read_record_entry(bool is_fixed) {
-    data entry_record = {};
-
-    entry_record.removed = NOT_REMOVED;
-    
-    entry_record.next = EMPTY;
-    entry_record.big_next = EMPTY;
-
-    scanf(" %d", &entry_record.id);
-
-    char *year = scan_quote_string();
-
-    if (strlen(year) > 0) {
-        entry_record.year = atoi(year);
-    }
-
-    else {
-        entry_record.year = EMPTY;
-    }
-
-    free(year);
-
-    char *total = scan_quote_string();
-
-    if (strlen(total) > 0) {
-        entry_record.total = atoi(total);
-    }
-
-    else {
-        entry_record.total = EMPTY;
-    }
-
-    free(total);
-
-    char *state = scan_quote_string();
-
-    if (strlen(state) > 0) {
-        entry_record.state[0] = state[0];
-        entry_record.state[1] = state[1];
-    }
-
-    else {
-        entry_record.state[0] = GARBAGE;
-        entry_record.state[1] = GARBAGE;
-    }
-
-    free(state);
-
-    entry_record.city = scan_quote_string();
-
-    entry_record.city_size = strlen(entry_record.city);
-    entry_record.brand = scan_quote_string();
-    entry_record.brand_size = strlen(entry_record.brand);
-    entry_record.model = scan_quote_string();
-    entry_record.model_size = strlen(entry_record.model);
-
-    entry_record.size = evaluate_record_size(entry_record, is_fixed);
-
-    return entry_record;
-}
-
 
 int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
-    // Testing file pointers and their validity. Then, testing the consistency of the file to which they point
+    /*
+     * Inserts multiple records into data file, as well as into an index file
+     * New records with variable size are inserted according to Worst Fit strategy into
+     * previously removed record spaces, or into the end of the file if no previously removed space is available.
+     */
+
+    // Testing the existance of both files, and expecting valid status for both
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_stream = fopen(data_filename, "rb+");
+    update_status(data_stream, BAD_STATUS);
+
     header file_header = fread_header(data_stream, is_fixed);
 
     // Loading index to RAM
@@ -409,28 +402,36 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 
     // To finish writing on the data file, set status as OK_STATUS
     update_status(data_stream, OK_STATUS);
-
-    // Write index on the file to disk
-    array_to_index(index, is_fixed);
-
     fclose(data_stream);
+
+    // Writes index array stored in RAM back to index file,
+    // thus greatly optimizing previous index operations speeds as
+    // writing back to index file is performed only after all deletions are made
+    array_to_index(index, is_fixed);
     free_index_array(&index);
     
     return SUCCESS_CODE;
 }
 
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
+    /*
+     * Updates a sequence of records from given console input.
+     * Updating method depends on the selected data encoding.
+     * If the new record does not fit on the previously existing space (specifically for variabel sized records),
+     * record is deleted and reinserted with updated parameters to next available space according to Worst Fit method.
+     */
+
     // Testing file pointers and their validity. Then, testing the consistency of the file to which they point
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_stream = fopen(data_filename, "rb+");
-    header file_header = fread_header(data_stream, is_fixed);
-
     // To write on the data file, set status as BAD_STATUS
     update_status(data_stream, BAD_STATUS);
 
-    // Load index to RAM
+    header file_header = fread_header(data_stream, is_fixed);
+
+    // Loading index to RAM
     index_array index = index_to_array(index_filename, is_fixed);
 
     for (int i = 0; i < total_updates; i++) {
@@ -472,13 +473,13 @@ int update_records_command(char *data_filename, char *index_filename, int total_
 
     // To finish writing on the data file, set status as OK_STATUS
     update_status(data_stream, OK_STATUS);
+    fclose(data_stream);
 
-    // Write index on the file to disk
+    // Writes index array stored in RAM back to index file,
+    // thus greatly optimizing previous index operations speeds as
+    // writing back to index file is performed only after all deletions are made
     array_to_index(index, is_fixed);
-
     free_index_array(&index);
 
-    fclose(data_stream);
-    
     return SUCCESS_CODE;
 }

@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "record.h"
+#include "utils.h"
 
 void free_record(data record) {
     /* Frees all variable sized fields inside record, if allocated.
@@ -242,6 +243,63 @@ void remove_record(FILE *stream, long int record_offset, void *next, bool is_fix
     }
 }
 
+
+data read_record_entry(bool is_fixed) {
+    /*
+     * Reads a record from console based on desired encoding type
+     * Saves all read fields and fills remaining fields with empty values
+     * Returns final generated record with desired encoding, of data type
+     */
+    data entry_record = {};
+
+    // Firstly, set fields used for removing records such as the
+    // removed status, next_rrn or next_byteoffset to empty
+    entry_record.removed = NOT_REMOVED;
+
+    entry_record.next = EMPTY;
+    entry_record.big_next = EMPTY;
+
+    // Then, scan fixed sized fields, such as id, year and state
+    scanf(" %d", &entry_record.id);
+
+    char *year = scan_quote_string();
+    if (strlen(year) > 0)
+        entry_record.year = atoi(year);
+    else
+        entry_record.year = EMPTY;
+    free(year);
+
+    char *total = scan_quote_string();
+    if (strlen(total) > 0)
+        entry_record.total = atoi(total);
+    else
+        entry_record.total = EMPTY;
+    free(total);
+
+    char *state = scan_quote_string();
+    if (strlen(state) > 0) {
+        entry_record.state[0] = state[0];
+        entry_record.state[1] = state[1];
+    }
+    else {
+        entry_record.state[0] = GARBAGE;
+        entry_record.state[1] = GARBAGE;
+    }
+    free(state);
+
+    // Then, scan variable sized records, such as city, brand and model fields
+    entry_record.city = scan_quote_string();
+    entry_record.city_size = strlen(entry_record.city);
+    entry_record.brand = scan_quote_string();
+    entry_record.brand_size = strlen(entry_record.brand);
+    entry_record.model = scan_quote_string();
+    entry_record.model_size = strlen(entry_record.model);
+
+    // Finally, calculate the resulting record final size and save to the size field
+    entry_record.size = evaluate_record_size(entry_record, is_fixed);
+
+    return entry_record;
+}
 
 int evaluate_record_size(data record, bool is_fixed) {
     /*

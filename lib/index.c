@@ -214,9 +214,11 @@ int binary_search(index_array index, index_node lookup, int offset, int top) {
 }
 
 
-// Performs a binary search to find a node within the index array by its id, or if node is not found
-// return an empty node.
 index_node find_by_id(index_array index, int id) {
+    /*
+     * Performs a binary search to find a node within the index array by its id,
+     * or if node is not found return an empty node.
+     */
 
     // Performs a binary search to find next ordered position of index inside the array.
     index_node to_find = {.id = id};
@@ -232,9 +234,11 @@ index_node find_by_id(index_array index, int id) {
 }
 
 
-// Removes an index node (id; rrn or byteoffset pair) from the array of indexes,
-// as to perform all index operations on RAM
 void remove_from_index_array(index_array *index, int id) {
+    /*
+     *  Removes an index node (id; rrn or byteoffset pair) from the array of indexes,
+     *  as to perform all index operations on RAM
+     */
 
     index_node to_remove = {.id = id};
     // Finds the position of the index to be removed within the array using a binary search
@@ -249,9 +253,11 @@ void remove_from_index_array(index_array *index, int id) {
 }
 
 
-// Inserts a new index node (id; rrn or byteoffset pair) into the array of indexes,
-// as to perform all index operations on RAM
 void insert_into_index_array(index_array *index, index_node to_insert) {
+    /*
+     * Inserts a new index node (id; rrn or byteoffset pair) into the array of indexes,
+     * as to perform all index operations on RAM
+     */
 
     // Performs a binary search to find next ordered position of index inside the array.
     int idx = binary_search(*index, to_insert, 0, index->size - 1);
