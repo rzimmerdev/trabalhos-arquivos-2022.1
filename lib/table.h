@@ -88,8 +88,38 @@ int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed);
 */
 int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template);
 
+/*     
+* This function is used only for data files that contain constant sized records. It updates fields of a record present 
+* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the 
+* new values to be put on the filtered fields, are parameters of the function.
+*
+* Args:
+*     FILE *stream: File stream to iterate through and write data in (data file)
+*     index_array *index: The index file brought to RAM so it'll be possible to change the new records' id + RRN/byteoffset
+*     data filter: The fields that have been used to search the record to be updated and that have to change on data file
+*     data params: The new values to the fields of the record that will change/be updated
+*     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
+*
+* Returns:
+*     int: Returns num_updated if all updates could be made on the records filtered, and ERROR_CODE otherwise.
+*/
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
+/*     
+* This function is used only for data files that contain variable sized records. It updates fields of a record present 
+* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the 
+* new values to be put on the filtered fields, are parameters of the function.
+*
+* Args:
+*     FILE *stream: File stream to iterate through and write data in (data file)
+*     index_array *index: The index file brought to RAM so it'll be possible to change the new records' id + RRN/byteoffset
+*     data filter: The fields that have been used to search the record to be updated and that have to change on data file
+*     data params: The new values to the fields of the record that will change/be updated
+*     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
+*
+* Returns:
+*     int: Returns num_updated if all updates could be made on the records filtered, and ERROR_CODE otherwise.
+*/
 int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
 #endif //T1_TABLE_H

@@ -521,6 +521,10 @@ int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed
     insert_into_index_array(index, node_to_add);
 }
 
+// TODO: make a function that attributes for static sized fields, and other one
+// to attribute for variable sized fields
+// Intern function called in update_fixed and update_variable - used to fill the record to be updated 
+// with new values, contained in `params`.
 void update_record(data *record, data params) {
     record->removed = NOT_REMOVED;
 
@@ -542,7 +546,7 @@ void update_record(data *record, data params) {
     }
 
     if (params.city != NULL) {
-        // So se houver alteracao no campo
+        // The field is going to change - throw away the old value and get the new one
         if (record->city) {
             free(record->city);
         }
@@ -573,19 +577,23 @@ void update_record(data *record, data params) {
     }
 }
 
+// TODO: remove_where must be updated and use header *template so we don't have to write
+// directly the header to disk in the end of this function.
+// Updates variable sized records that match the values present in `params`. Intern function called
+// in update_variable_filtered.
 void update_variable(FILE *stream, index_array *index, data record, data params, long int byteoffset, header *template) {
     fseek(stream, byteoffset, SEEK_SET);
 
-    // Arquivo desatualizado cujos dados estao escritos em disco
+    // Outdated record whose data are written on disk
     data record_to_update = fread_record(stream, false);
     int old_id = record_to_update.id;
 
-    // Atualizando em RAM os dados para o registro (colocando dados atualizados)
+    // Updating record data on RAM (putting updated data on record_to_update, based on `params`) 
     update_record(&record_to_update, params);
 
-    // Se couber no espaco do reg.
+    // If record fits its original space
     if (evaluate_record_size(record_to_update, false) <= record_to_update.size) {
-        // Make an update on index array
+        // Make an update on index array if `id` value is going to change
         if (params.id != EMPTY_FILTER) {
             remove_from_index_array(index, record.id);
             index_node new_node = {};
@@ -595,26 +603,35 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
             insert_into_index_array(index, new_node);
         }
 
+        // Write into data file the updated record
         fseek(stream, byteoffset, SEEK_SET);
         write_record(stream, record_to_update, false);
 
-        // Preencher espaco que sobrou do registro
+        // Put GARBAGE into not filled record space
         for (int i = 0; i < record_to_update.size - evaluate_record_size(record_to_update, false); i++) {
             fputc(GARBAGE, stream);
         }
     }
 
     else {
-        // Se nao coube, vamos inserir no final. Entao, eh preciso obter o tamanho
-        // desse novo registro para inseri-lo
+        // If the updated record does not fit its original space, insert it into the end of data
+        // file. In order to do this, it's necessary to get the updated record's size so it
+        // can be inserted into data file.
         record_to_update.size = evaluate_record_size(record_to_update, false);
         data filter = {.id = old_id, .year = EMPTY_FILTER, .total = EMPTY_FILTER, .state = EMPTY_FILTER,
                 .city = NULL, .model = NULL, .brand = NULL};
 
+        // Delete the record of its original space. (call func. 6)
         remove_where(stream, index, filter, false);
+
         fseek(stream, 0, SEEK_SET);
+
         *template = fread_header(stream, false);
+
+        // Re-insert updated record into data file (call func. 7)
         insert_into(stream, index, record_to_update, false, template);
+
+        // Write updated header into data file on disk
         fseek(stream, 0, SEEK_SET);
         write_header(stream, *template, false, true);
     }
@@ -622,8 +639,16 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
     free_record(record_to_update);
 }
 
+// TODO: the logic used here looks very similar to the one used at update_fixed_filtered.
+// Maybe we can pass one more parameter (is_fixed? use rrn : use byteoff) and get rid of one of those functions.
 int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
     int num_updated = 0;
+
+    /*
+     * Look for records that match the criteria contained in `filter`. If the `id`
+     * field is filled, search for record in index file; otherwise (if `id` is not
+     * search parameter), search sequentially on data file, comparing criteria. 
+    */
 
     if (filter.id != EMPTY_FILTER) {
         long int byteoffset = find_by_id(*index, filter.id).byteoffset;
@@ -665,10 +690,13 @@ int update_variable_filtered(FILE *stream, index_array *index, data filter, data
     return num_updated;
 }
 
+// Updates constant sized records that match the values present in `params`. Intern function called
+// in update_fixed_filtered.
 void update_fixed(FILE *stream, index_array *index, data record, data params, int rrn, header *template) {
+    // Find record to update
     long int offset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
 
-    // Make an update on index array
+    // Make an update on index array (index file brought to RAM) if `id` will have a new value
     if (params.id != EMPTY_FILTER) {
         remove_from_index_array(index, record.id);
         index_node new_node = {};
@@ -678,47 +706,56 @@ void update_fixed(FILE *stream, index_array *index, data record, data params, in
         insert_into_index_array(index, new_node);
     }
 
-    // Make an update on data file
+    // Attribute new values' fields (params) into a record format
     update_record(&record, params);
 
+    // Make an update to data file on disk
     fseek(stream, offset, SEEK_SET);
     write_record(stream, record, true);
 
     free_record(record);
 }
 
+// TODO: comment 'while' that iterates through data file (stream)
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template) {
     int num_updated = 0;
+    
     /*
-     * Buscar os registros que dao match usando os criterios contidos
-     * em filter.
-     * Se o campo id estiver preenchido, buscar o registro no arquivo de indice;
-     * se nao tem o id como parametro de busca, procure sequencialmente no
-     * arquivo de dados, comparando os criterios.
-     */
+     * Look for records that match the criteria contained in `filter`. If the `id`
+     * field is filled, search for record in index file; otherwise (if `id` is not
+     * search parameter), search sequentially on data file, comparing criteria. 
+    */
+   
     if (filter.id != EMPTY_FILTER) {
-
+        // Look into the index array (index file sent to RAM so it can be manipulated
+        // several times - the num_updated amount of times)
         int rrn = find_by_id(*index, filter.id).rrn;
         if (rrn == ERROR_CODE)
             return ERROR_CODE;
 
+        // The record was found, so seek to it
         long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
         fseek(stream, byteoffset, SEEK_SET);
 
-        // Acesso direto no arq. de dados
+        // Direct access into data file
         data record = fread_record(stream, true);
         int result = verify_record(record, filter);
         if (result == ERROR_CODE)
             return ERROR_CODE;
 
-        // Alterar os registros que dao match com os valores contidos
-        // em params.
-        // Se for para registro de tamanho fixo, basta realizar a alteracao, porque sempre cabe no espaco.
+        // Update record because it matches params' values. Since we're dealing with
+        // constant sized records, it's enough to just make the alteration - it always fits 
+        // the space; it's not necessary to test it.
         update_fixed(stream, index, record, params, rrn, template);
 
+        // Increment it 'cause a new record was just updated! Then, return.
         return ++num_updated;
     }
+
+    // We don't have the `id`. Look into the data file for the records to be updated.
     else {
+
+        // Iterate through the records that exist, get their info and update them.
         int rrn = 0;
         while (rrn++ < template->next_rrn - 1) {
             long int byteoffset = rrn * FIXED_REG_SIZE + FIXED_HEADER;
