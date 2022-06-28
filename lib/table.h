@@ -39,7 +39,10 @@ void update_status(FILE *stream, char STATUS[]);
 char read_status(FILE *stream);
 
 
-// TODO: Description
+/*
+ * Reads a single header into a newly created header variable, from within
+ * the given stream file, and according to selected encoding type.
+ */
 header fread_header(FILE *stream, bool is_fixed);
 
 
@@ -68,16 +71,19 @@ int select_table(FILE *stream, bool is_fixed);
 */
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
 
+
+
 int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed);
 
-/*     
-* Inserts a new record field into the given table, as well as into the array of 
+
+/*
+* Inserts a new record field into the given table, as well as into the array of
 * indexes.
-* Uses the header top element to find next available space, or insert into end 
+* Uses the header top element to find next available space, or insert into end
 * of file if no empty space within the removed fields is available.
 * Uses a similar organization to what was used in the remove_where functionality, which means
-* inserts according to Worse Fit in variable sized tables and First fit in 
-* fixed sized tables.   
+* inserts according to Worse Fit in variable sized tables and First fit in
+* fixed sized tables.
 *
 * Args:
 *     FILE *stream: File stream to iterate through and write data in (data file)
@@ -86,11 +92,12 @@ int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed);
 *     bool is_fixed: File encoding to use when reading the input stream (can be either FIXED (1) or VARIABLE (0))
 *     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
 */
-int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template);
+void insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template);
 
-/*     
-* This function is used only for data files that contain constant sized records. It updates fields of a record present 
-* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the 
+
+/*
+* Used only for data files that contain constant sized records. It updates fields of a record present
+* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the
 * new values to be put on the filtered fields, are parameters of the function.
 *
 * Args:
@@ -105,9 +112,10 @@ int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed
 */
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
-/*     
-* This function is used only for data files that contain variable sized records. It updates fields of a record present 
-* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the 
+
+/*
+* Used only for data files that contain variable sized records. It updates fields of a record present
+* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the
 * new values to be put on the filtered fields, are parameters of the function.
 *
 * Args:
