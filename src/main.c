@@ -49,7 +49,7 @@ int main() {
     if (file_type_str[4] == '1') {
         filetype = FIXED;
     }
-    
+
     else {
         filetype = VARIABLE;
     }
@@ -127,50 +127,40 @@ int main() {
             */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
-            char data_path[4 + (int) strlen(data_filename)];
-            strcpy(data_path, "bin/");
-            strcat(data_path, data_filename);
-            char index_path[4 + (int) strlen(index_filename)];
-            strcpy(index_path, "bin/");
-            strcat(index_path, index_filename);
 
-            int status = create_index_command(data_path, index_path, filetype);
-            free(data_filename);
-            free(index_filename);
+            int status = create_index_command(data_filename, index_filename, filetype);
+
             if (status == SUCCESS_CODE)
-                binarioNaTela(index_path);
+                binarioNaTela(index_filename);
+
             else if (status == ERROR_CODE)
                 printf("Falha no processamento do arquivo.");
             else if (status == NOT_FOUND)
                 printf("Registro inexistente.\n");
+            free(data_filename);
+            free(index_filename);
 
             break;
         }
         case REMOVE_RECORDS: {
             // Specify in which data file you want to delete records. It will also be necessary to get its index file so
-            // we can update it (removing in there the primary key and the RRN/byteoffset of the deleted records). 
+            // we can update it (removing in there the primary key and the RRN/byteoffset of the deleted records).
             char *data_filename = scan_word();
             char *index_filename = scan_word();
-            char data_path[4 + (int) strlen(data_filename)];
-            strcpy(data_path, "bin/");
-            strcat(data_path, data_filename);
-            char index_path[4 + (int) strlen(index_filename)];
-            strcpy(index_path, "bin/");
-            strcat(index_path, index_filename);
 
             int total_filters; scanf("%d ", &total_filters);
-            int status = delete_records_command(data_path, index_path, total_filters, filetype);
-            free(data_filename);
-            free(index_filename);
+            int status = delete_records_command(data_filename, index_filename, total_filters, filetype);
 
             if (status == SUCCESS_CODE) {
-                binarioNaTela(data_path);
-                binarioNaTela(index_path);
+                binarioNaTela(data_filename);
+                binarioNaTela(index_filename);
             }
             else if (status == ERROR_CODE)
                 printf("Falha no processamento do arquivo.");
             else if (status == NOT_FOUND)
                 printf("Registro inexistente.\n");
+            free(data_filename);
+            free(index_filename);
 
             break;
         }
@@ -179,72 +169,41 @@ int main() {
             // we can update it (adding in there the primary key and the RRN/byteoffset of the new inserted records).
             char *data_filename = scan_word();
             char *index_filename = scan_word();
-            
-            char *data_path = (char *) malloc((5 + (int)strlen(data_filename)) * sizeof(char));
-            data_path[0] = '\0';
-
-            char *index_path = (char *) malloc((5 + (int)strlen(index_filename)) * sizeof(char));
-            index_path[0] = '\0';
-
-            strcpy(data_path, "bin/");
-            strcat(data_path, data_filename);
-            strcpy(index_path, "bin/");
-            strcat(index_path, index_filename);
 
             int total_insertions; scanf("%d ", &total_insertions);
 
-            int status = insert_records_command(data_path, index_path, total_insertions, filetype);
+            int status = insert_records_command(data_filename, index_filename, total_insertions, filetype);
 
             if (status != ERROR_CODE) {
-                binarioNaTela(data_path);
-                binarioNaTela(index_path);
+                binarioNaTela(data_filename);
+                binarioNaTela(index_filename);
             }
-            else {
+            else
                 printf("Falha no processamento do arquivo.");
-            }
-
             free(data_filename);
             free(index_filename);
-            free(data_path);
-            free(index_path);
 
             break;
         }
         case UPDATE_RECORDS: {
             // Specify in which data file you want to update records. It will also be necessary to get its index file so
-            // we can update it (sometimes removing & re-adding in there the primary key and the RRN/byteoffset of the 
+            // we can update it (sometimes removing & re-adding in there the primary key and the RRN/byteoffset of the
             // updated records).
             char *data_filename = scan_word();
             char *index_filename = scan_word();
-            
-            char *data_path = (char *) malloc((5 + (int)strlen(data_filename)) * sizeof(char));
-            data_path[0] = '\0';
-
-            char *index_path = (char *) malloc((5 + (int)strlen(index_filename)) * sizeof(char));
-            index_path[0] = '\0';
-
-            strcpy(data_path, "bin/");
-            strcat(data_path, data_filename);
-            strcpy(index_path, "bin/");
-            strcat(index_path, index_filename);
 
             int total_updates; scanf("%d ", &total_updates);
-
-            int status = update_records_command(data_path, index_path, total_updates, filetype);
+            int status = update_records_command(data_filename, index_filename, total_updates, filetype);
+//            int status = update_records_command(data_path, index_path, total_updates, filetype);
 
             if (status != ERROR_CODE) {
-                binarioNaTela(data_path);
-                binarioNaTela(index_path);
+                binarioNaTela(data_filename);
+                binarioNaTela(index_filename);
             }
-
-            else {
+            else
                 printf("Falha no processamento do arquivo.");
-            }
-
             free(data_filename);
             free(index_filename);
-            free(data_path);
-            free(index_path);
 
             break;
         }

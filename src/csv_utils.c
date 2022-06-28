@@ -7,7 +7,6 @@
 #include "../lib/utils.h"
 #include "../lib/table.h"
 
-// TODO: Add more comments
 
 int csv_read_int(FILE *stream) {
     char *value = fscan_until(stream, ',');

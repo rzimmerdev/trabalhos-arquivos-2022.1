@@ -429,25 +429,24 @@ int remove_variable_filtered(FILE *stream, index_array *index, data filter, head
 }
 
 
-int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed) {
-    // Generic function to remove multiple records from a table, using reference index array,
-    // as well as filter record to compare values to.
-    // All records to be removed will therefore match at least all inputs given in the filter record.
-    fseek(stream, 0, SEEK_SET);
-    header header_template = fread_header(stream, is_fixed);
+int remove_where(FILE *stream, index_array *index, data filter, header *template, bool is_fixed) {
+    /*
+     * Generic function to remove multiple records from a table, using reference index array,
+     * as well as filter record to compare values to.
+     * All records to be removed will therefore match at least all inputs given in the filter record.
+     */
 
     // Decide which type of removal to perform, be it using Worst Fit linked list for variable sized records
     // or first fit for fixed size records (stack).
-    int num_removed = is_fixed ? remove_fixed_filtered(stream, index, filter, &header_template) :
-                             remove_variable_filtered(stream, index, filter, &header_template);
+    int num_removed = is_fixed ? remove_fixed_filtered(stream, index, filter, template) :
+                             remove_variable_filtered(stream, index, filter, template);
 
     // Count total removed records and return status accordingly.
     if (num_removed > 0) {
-        header_template.num_removed += num_removed;
+        template->num_removed += num_removed;
     }
 
-    write_header(stream, header_template, is_fixed, true);
-    return header_template.num_removed > 0 ? SUCCESS_CODE : NOT_REMOVED;
+    return template->num_removed > 0 ? SUCCESS_CODE : NOT_REMOVED;
 }
 
 
@@ -630,8 +629,6 @@ void update_record(data *record, data params) {
 }
 
 
-// TODO: remove_where must be updated and use header *template so we don't have to write
-// directly the header to disk in the end of this function.
 void update_variable(FILE *stream, index_array *index, data record, data params, long int byteoffset, header *template) {
     /*
      * Updates variable sized records that match the values present in `params`.
@@ -675,18 +672,15 @@ void update_variable(FILE *stream, index_array *index, data record, data params,
                 .city = NULL, .model = NULL, .brand = NULL};
 
         // Delete the record of its original space. (call func. 6)
-        remove_where(stream, index, filter, false);
+        remove_where(stream, index, filter, template, false);
 
         fseek(stream, 0, SEEK_SET);
-
-        *template = fread_header(stream, false);
 
         // Re-insert updated record into data file (call func. 7)
         insert_into(stream, index, record_to_update, false, template);
 
         // Write updated header into data file on disk
         fseek(stream, 0, SEEK_SET);
-        write_header(stream, *template, false, true);
     }
 
     free_record(record_to_update);

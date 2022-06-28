@@ -10,9 +10,6 @@
 #include "commands.h"
 #include "csv_utils.h"
 
-// TODO: Add more comments
-// TODO: Reevaluate error commands
-
 
 int create_table_command(char *csv_filename, char *out_filename, bool is_fixed) {
     /* Creates an abstract table with given input and saves result to a specific file.
@@ -338,6 +335,8 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
     FILE *data_stream = fopen(data_filename, "rb+");
     update_status(data_stream, BAD_STATUS);
 
+    header file_header = fread_header(data_stream, is_fixed);
+
     // Load index file to RAM memory, by generating array with indices
     index_array index = index_to_array(index_filename, is_fixed);
 
@@ -350,11 +349,14 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
         int total_parameters; scanf("%d ", &total_parameters);
         data filter = scanf_filter(total_parameters);
 
-        remove_where(data_stream, &index, filter, is_fixed);
+        fseek(data_stream, is_fixed ? FIXED_HEADER : VARIABLE_HEADER, SEEK_SET);
+        remove_where(data_stream, &index, filter, &file_header, is_fixed);
 
         // Free filter read for each loop iteration
         free_record(filter);
     }
+
+    write_header(data_stream, file_header, is_fixed, true);
 
     // Finally, close data stream and exit remove_where command
     update_status(data_stream, OK_STATUS);

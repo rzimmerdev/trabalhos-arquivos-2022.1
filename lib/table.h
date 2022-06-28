@@ -72,8 +72,12 @@ int select_table(FILE *stream, bool is_fixed);
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
 
 
-
-int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed);
+/*
+ * Generic function to remove multiple records from a table, using reference index array,
+ * as well as filter record to compare values to.
+ * All records to be removed will therefore match at least all inputs given in the filter record.
+ */
+int remove_where(FILE *stream, index_array *index, data filter, header *template, bool is_fixed);
 
 
 /*

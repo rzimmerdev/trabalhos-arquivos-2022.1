@@ -5,8 +5,6 @@
 
 #include "utils.h"
 
-// TODO: Add more comments
-
 
 char *scan_word() {
     /* Scans a single word ended in ' ' (space character) or newline character.
