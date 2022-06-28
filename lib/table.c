@@ -179,7 +179,25 @@ bool compare_record(data template, data record) {
 }
 
 
-int select_where(FILE *stream, data template, header header_template, bool is_fixed) {
+int verify_record(data record, data filter) {
+    /*
+     * Verifies if record is marked as removed, as well as
+     * verifying if both records have matching filtered fields (ignores fields marked as EMPTY_FILTER)
+     */
+    if (record.removed == IS_REMOVED) {
+        free_record(record);
+        return ERROR_CODE;
+    }
+
+    if (!compare_record(filter, record)) {
+        free_record(record);
+        return ERROR_CODE;
+    }
+    return SUCCESS_CODE;
+}
+
+
+int select_where(FILE *stream, data filter, header header_template, bool is_fixed) {
     /* Prints to console all records in given file that match specific record template filter.
      *
      * Args:
@@ -206,23 +224,9 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
         // Verify if template filter has any of the following fixed or variable inputs selected,
         // and if it exists, compare it to its counterpart in the current record (if it's non-empty in the first place)
 
-        if ((template.year != EMPTY && (record.year == -1 || template.year != record.year)) ||
-            (template.id != EMPTY && (record.id == -1 || template.id != record.id)) ||
-            (template.total != EMPTY && (record.total == -1 || template.total != record.total))) {
-
-            // Free record and continue iterating otherwise (in which case given filter doesn't match current record).
-            free_record(record);
+        int result = verify_record(record, filter);
+        if (result == ERROR_CODE)
             continue;
-        }
-
-        if ((template.city && !record.city) || (template.city && record.city && strcmp(template.city, record.city)) ||
-            (template.brand && !record.brand) || (template.brand && record.brand && strcmp(template.brand, record.brand)) ||
-            (template.model && !record.model) || (template.model && record.model && strcmp(template.model, record.model))) {
-
-            // Free record and continue iterating otherwise. (in which case given filter doesn't match current record).
-            free_record(record);
-            continue;
-        }
 
         printf_record(record);
         free_record(record);
@@ -230,24 +234,6 @@ int select_where(FILE *stream, data template, header header_template, bool is_fi
     }
 
     return total_found > 0 ? SUCCESS_CODE : NOT_FOUND;
-}
-
-
-int verify_record(data record, data filter) {
-    /*
-     * Verifies if record is marked as removed, as well as
-     * verifying if both records have matching filtered fields (ignores fields marked as EMPTY_FILTER)
-     */
-    if (record.removed == IS_REMOVED) {
-        free_record(record);
-        return ERROR_CODE;
-    }
-
-    if (!compare_record(filter, record)) {
-        free_record(record);
-        return ERROR_CODE;
-    }
-    return SUCCESS_CODE;
 }
 
 

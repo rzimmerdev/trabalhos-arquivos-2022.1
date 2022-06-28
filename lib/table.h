@@ -69,7 +69,7 @@ int select_table(FILE *stream, bool is_fixed);
 * Returns:
 *     int: Returns SUCCESS_CODE if any record could be read, and NOT_FOUND otherwise.
 */
-int select_where(FILE *stream, data template, header header_template, bool is_fixed);
+int select_where(FILE *stream, data filter, header header_template, bool is_fixed);
 
 
 /*

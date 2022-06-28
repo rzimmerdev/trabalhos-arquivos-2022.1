@@ -32,11 +32,9 @@ char *fscan_until(FILE *stream, char separator);
 * Returns:
 *     char *: Initialized pointer to zero ended string corresponding to text inbetween quotes
 */
-char *scan_word_quoted();
+char *scan_quote_string();
 
 
 void binarioNaTela(char *nomeArquivoBinario);
-
-char *scan_quote_string();
 
 #endif //T1_UTILS_H

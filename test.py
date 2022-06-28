@@ -5,10 +5,12 @@ import sys
 # Roda dentro do diretório bin/,
 # sugerível deixar arquivos nesse diretório, mas dá pra alterar o código pra poder rodar em outro lugar
 
+trabalho = 2
+
 
 def test_cases(idx=None):
-    input_dir = "cases2/in"
-    output_dir = "cases2/out"
+    input_dir = f"cases{trabalho}/in"
+    output_dir = f"cases{trabalho}/out"
 
     if not idx:
         starting_file = 1
@@ -22,19 +24,23 @@ def test_cases(idx=None):
 
     subprocess.run([f"make all"], shell=True)
 
+    subprocess.run(["rm bin/*"], shell=True)
+    subprocess.run([f"cp files{trabalho}/* bin/"], shell=True)
+
+    os.chdir("bin")
     for i in range(starting_file, total_files + 1):
-        subprocess.run([f"./main < {input_dir}/{i}.in > {output}"], shell=True)
-        subprocess.run([f"diff -w saida.txt {output_dir}/{i}.out > {comparison}", "-w"], shell=True)
+
+        subprocess.run([f"../main < ../{input_dir}/{i}.in > {output}"], shell=True)
+        subprocess.run([f"diff -w saida.txt ../{output_dir}/{i}.out > {comparison}", "-w"], shell=True)
 
         to_print = open("comparison.txt").read()
-        case_input = open(f"{input_dir}/{i}.in").read()
+        case_input = open(f"../{input_dir}/{i}.in").read()
         if to_print:
             print(f"Caso {i}: Erro.")
             print(f"Entrada: {case_input}")
             print(to_print, end="")
         else:
             print(f"Caso {i}: Ok.")
-    subprocess.run([f"cp files2/* bin/"], shell=True)
 
 
 def main():

@@ -10,6 +10,52 @@
 #include "commands.h"
 #include "csv_utils.h"
 
+int verify_stream(char *data_filename, char *index_filename, bool verify_index) {
+    /*
+     * Generic function to verify stream of record data and record indices.
+     * Uses the verify_index boolean value to decide whether to verify already existing index file or not.
+     */
+
+    // ====================================================
+    // Verify if data stream exists and its status is valid
+    // ====================================================
+    FILE *data_stream = fopen(data_filename, "rb");
+
+    // Verify if data file exists, otherwise return error
+    if (data_stream == NULL)
+        return ERROR_CODE;
+
+    // Access data stream and read status field from header
+    int data_status = (read_status(data_stream) == OK_STATUS[0]);
+    fclose(data_stream);
+
+    if (data_status != SUCCESS_CODE)
+        return ERROR_CODE;
+
+    // If the verify_index parameter is false, return function as the data stream has been
+    // verified to exist and not be corrupted
+    if (!verify_index)
+        return SUCCESS_CODE;
+
+    // =====================================================
+    // Verify if index stream exists and its status is valid
+    // =====================================================
+    FILE *index_stream = fopen(index_filename, "rb");
+
+    // Verify if index file exists, otherwise return error
+    if (index_stream == NULL)
+        return ERROR_CODE;
+
+    // Access data stream and read status field from header
+    int index_status = (read_status(index_stream) == OK_STATUS[0]);
+    fclose(index_stream);
+
+    if (index_status != SUCCESS_CODE)
+        return ERROR_CODE;
+
+    return SUCCESS_CODE;
+}
+
 
 int create_table_command(char *csv_filename, char *out_filename, bool is_fixed) {
     /* Creates an abstract table with given input and saves result to a specific file.
@@ -22,6 +68,7 @@ int create_table_command(char *csv_filename, char *out_filename, bool is_fixed) 
      * Returns:
      *     int: Returns SUCCESS_CODE if read and write operations were successful, and ERROR_CODE otherwise.
      */
+
     FILE *csvstream = fopen(csv_filename, "r");
 
     // Verify if input and output files can be found
@@ -50,10 +97,10 @@ int select_command(char *bin_filename, bool is_fixed) {
      * Returns:
      *     int: Returns SUCCESS_CODE if table could be accessed, and ERROR_CODE otherwise.
      */
-    FILE *stream = fopen(bin_filename, "rb");
-
-    if (stream == NULL)
+    if (verify_stream(bin_filename, NULL, false) == ERROR_CODE)
         return ERROR_CODE;
+
+    FILE *stream = fopen(bin_filename, "rb");
 
     int status = select_table(stream, is_fixed);
 
@@ -174,15 +221,11 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
      *      int: Returns SUCCESS_CODE if any table record could be read,
      *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise.
      */
+    if (verify_stream(bin_filename, NULL, false) == ERROR_CODE)
+        return ERROR_CODE;
+
     FILE *stream = fopen(bin_filename, "rb");
-
-    if (stream == NULL )
-        return ERROR_CODE;
-
     header file_header = fread_header(stream, is_fixed);
-
-    if (file_header.status[0] == BAD_STATUS[0])
-        return ERROR_CODE;
 
     // Read template filter from console, to be able to compare such filter with each
     // record in given file.
@@ -208,11 +251,10 @@ int select_rrn_command(char *bin_filename, int rrn) {
      *      int: Returns SUCCESS_CODE if table record could be read,
      *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise
      */
-    FILE *stream = fopen(bin_filename, "rb");
-
-    if (stream == NULL)
+    if (verify_stream(bin_filename, NULL, false) == ERROR_CODE)
         return ERROR_CODE;
 
+    FILE *stream = fopen(bin_filename, "rb");
     header file_header = fread_header(stream, true);
     // Decide whether desired rrn is within expected range
     if ((rrn < 0) || (rrn >= file_header.next_rrn)) {
@@ -235,54 +277,6 @@ int select_rrn_command(char *bin_filename, int rrn) {
     }
     else
         return NOT_FOUND;
-}
-
-
-
-int verify_stream(char *data_filename, char *index_filename, bool verify_index) {
-    /*
-     * Generic function to verify stream of record data and record indices.
-     * Uses the verify_index boolean value to decide whether to verify already existing index file or not.
-     */
-
-    // ====================================================
-    // Verify if data stream exists and its status is valid
-    // ====================================================
-    FILE *data_stream = fopen(data_filename, "rb");
-
-    // Verify if data file exists, otherwise return error
-    if (data_stream == NULL)
-        return ERROR_CODE;
-
-    // Access data stream and read status field from header
-    int data_status = (read_status(data_stream) == OK_STATUS[0]);
-    fclose(data_stream);
-
-    if (data_status != SUCCESS_CODE)
-        return ERROR_CODE;
-
-    // If the verify_index parameter is false, return function as the data stream has been
-    // verified to exist and not be corrupted
-    if (!verify_index)
-        return SUCCESS_CODE;
-
-    // =====================================================
-    // Verify if index stream exists and its status is valid
-    // =====================================================
-    FILE *index_stream = fopen(index_filename, "rb");
-
-    // Verify if index file exists, otherwise return error
-    if (index_stream == NULL)
-        return ERROR_CODE;
-
-    // Access data stream and read status field from header
-    int index_status = (read_status(index_stream) == OK_STATUS[0]);
-    fclose(index_stream);
-
-    if (index_status != SUCCESS_CODE)
-        return ERROR_CODE;
-
-    return SUCCESS_CODE;
 }
 
 

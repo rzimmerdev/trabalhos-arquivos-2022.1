@@ -64,40 +64,7 @@ char *fscan_until(FILE *stream, char separator) {
 }
 
 
-char *scan_word_quoted() {
-    /* Scans unlimited characters up until a quote character is found, then, scans and stores characters up until,
-     * new quotes are found.
-     *
-     * Returns:
-     *     char *: Initialized pointer to zero ended string corresponding to text inbetween quotes
-     */
-    int size = 0;
-    char *word = malloc(size * sizeof(char));
-    char current_char = getchar();
-    if (current_char == 'N') { // Teste de campo NULO
-        word = realloc(word, 1 * sizeof(char));
-        word[0] = '\0';
-        getchar(); getchar(); getchar();
-    } ungetc(current_char, stdin);
-
-    while ((current_char = getchar()) != '"');
-
-    while (scanf("%c", &current_char) == 1 && current_char != '"') {
-        if (current_char != '\r') {
-            word = realloc(word, ++size * sizeof(char));
-            word[size - 1] = current_char;
-        }
-    }
-
-    word = realloc(word, (size + 1) * sizeof(char));
-    word[size] = '\0';
-    
-    return word;
-}
-
-// dado
 char *scan_quote_string() {
-
 	/*
 	*	Use essa função para ler um campo string delimitado entre aspas (").
 	*	Chame ela na hora que for ler tal campo. Por exemplo:
@@ -110,7 +77,6 @@ char *scan_quote_string() {
 	*		scan_quote_string(str2); // Vai salvar MARIA DA SILVA em str2 (sem as aspas)
 	*
 	*/
-
 	char current_char;
 
 	while((current_char = getchar()) != EOF && isspace(current_char)); // ignorar espaços, \r, \n...

@@ -119,7 +119,7 @@ int main() {
             break;
         }
         case CREATE_INDEX: {
-            /* Specify which data file you want to indexate (create a bin. file that will keep record of 
+            /* Specify which data file you want to indexate (create a bin. file that will keep record of
              * all records' primary keys (IDs') and RRNs/byteoffsets (used to find them on data file)), so we can find
              * them faster.
              * index with id + RRN -> only if working with constant sized's records (FIXED)
@@ -143,8 +143,10 @@ int main() {
             break;
         }
         case REMOVE_RECORDS: {
-            // Specify in which data file you want to delete records. It will also be necessary to get its index file so
-            // we can update it (removing in there the primary key and the RRN/byteoffset of the deleted records).
+            /*
+             * Specify in which data file you want to delete records. It will also be necessary to get its index file so
+             * we can update it (removing in there the primary key and the RRN/byteoffset of the deleted records).
+             */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
@@ -165,8 +167,10 @@ int main() {
             break;
         }
         case INSERT_RECORDS: {
-            // Specify in which data file you want to insert records. It will also be necessary to get its index file so
-            // we can update it (adding in there the primary key and the RRN/byteoffset of the new inserted records).
+            /*
+             * Specify in which data file you want to insert records. It will also be necessary to get its index file so
+             * we can update it (adding in there the primary key and the RRN/byteoffset of the new inserted records).
+             */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
@@ -186,9 +190,11 @@ int main() {
             break;
         }
         case UPDATE_RECORDS: {
-            // Specify in which data file you want to update records. It will also be necessary to get its index file so
-            // we can update it (sometimes removing & re-adding in there the primary key and the RRN/byteoffset of the
-            // updated records).
+            /*
+             * Specify in which data file you want to update records. It will also be necessary to get its index file so
+             * we can update it (sometimes removing & re-adding in there the primary key and the RRN/byteoffset of the
+             * updated records).
+             */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
