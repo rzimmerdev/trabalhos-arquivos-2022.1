@@ -224,7 +224,7 @@ index_node find_by_id(index_array index, int id) {
     index_node to_find = {.id = id};
     int idx = binary_search(index, to_find, 0, index.size - 1);
 
-    if (idx == -1) {
+    if (id != index.array[idx].id) {
         index_node empty = {.id = id, .rrn = -1, .byteoffset = -1};
         return empty;
     }
