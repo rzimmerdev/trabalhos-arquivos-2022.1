@@ -39,7 +39,10 @@ void update_status(FILE *stream, char STATUS[]);
 char read_status(FILE *stream);
 
 
-// TODO: Description
+/*
+ * Reads a single header into a newly created header variable, from within
+ * the given stream file, and according to selected encoding type.
+ */
 header fread_header(FILE *stream, bool is_fixed);
 
 
@@ -68,12 +71,63 @@ int select_table(FILE *stream, bool is_fixed);
 */
 int select_where(FILE *stream, data template, header header_template, bool is_fixed);
 
+
+
 int remove_where(FILE *stream, index_array *index, data filter, bool is_fixed);
 
-int insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template);
 
+/*
+* Inserts a new record field into the given table, as well as into the array of
+* indexes.
+* Uses the header top element to find next available space, or insert into end
+* of file if no empty space within the removed fields is available.
+* Uses a similar organization to what was used in the remove_where functionality, which means
+* inserts according to Worse Fit in variable sized tables and First fit in
+* fixed sized tables.
+*
+* Args:
+*     FILE *stream: File stream to iterate through and write data in (data file)
+*     index_array *index: The index file brought to RAM so it'll be possible to add the new records' id + RRN/byteoffset
+*     data new_record: The record whose new data received by input stream will be added to data file
+*     bool is_fixed: File encoding to use when reading the input stream (can be either FIXED (1) or VARIABLE (0))
+*     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
+*/
+void insert_into(FILE *stream, index_array *index, data new_record, bool is_fixed, header *template);
+
+
+/*
+* Used only for data files that contain constant sized records. It updates fields of a record present
+* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the
+* new values to be put on the filtered fields, are parameters of the function.
+*
+* Args:
+*     FILE *stream: File stream to iterate through and write data in (data file)
+*     index_array *index: The index file brought to RAM so it'll be possible to change the new records' id + RRN/byteoffset
+*     data filter: The fields that have been used to search the record to be updated and that have to change on data file
+*     data params: The new values to the fields of the record that will change/be updated
+*     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
+*
+* Returns:
+*     int: Returns num_updated if all updates could be made on the records filtered, and ERROR_CODE otherwise.
+*/
 int update_fixed_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
+
+/*
+* Used only for data files that contain variable sized records. It updates fields of a record present
+* in the given table, as well as in the array of indexes, based on search filters. The search filters, as well as the
+* new values to be put on the filtered fields, are parameters of the function.
+*
+* Args:
+*     FILE *stream: File stream to iterate through and write data in (data file)
+*     index_array *index: The index file brought to RAM so it'll be possible to change the new records' id + RRN/byteoffset
+*     data filter: The fields that have been used to search the record to be updated and that have to change on data file
+*     data params: The new values to the fields of the record that will change/be updated
+*     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
+*
+* Returns:
+*     int: Returns num_updated if all updates could be made on the records filtered, and ERROR_CODE otherwise.
+*/
 int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
 #endif //T1_TABLE_H
