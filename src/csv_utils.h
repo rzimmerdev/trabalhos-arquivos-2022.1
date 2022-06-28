@@ -1,6 +1,3 @@
-//
-// Created by rzimmerdev on 23/05/2022.
-//
 #include <stdio.h>
 #include <stdbool.h>
 

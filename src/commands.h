@@ -103,7 +103,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 /*
  * Updates a sequence of records from given console input.
  * Updating method depends on the selected data encoding.
- * If the new record does not fit on the previously existing space (specifically for variabel sized records),
+ * If the new record does not fit on the previously existing space (specifically for variable sized records),
  * record is deleted and reinserted with updated parameters to next available space according to Worst Fit method.
  */
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed);

@@ -1,6 +1,3 @@
-//
-// Created by rzimmerdev on 25/05/2022.
-//
 #include <stdio.h>
 #include <stdbool.h>
 #include "record.h"

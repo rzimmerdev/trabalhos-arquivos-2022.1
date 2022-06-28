@@ -88,7 +88,7 @@ int main() {
         }
         case SELECT_WHERE: {
             // Specify in which data file you want to recover the records' data. Also, get the criteria to show them
-            // (we will display only the ones that match search's parameters)
+            // (display only the ones that match search's parameters)
             char *bin_filename = scan_word();
             int total_parameters; scanf("%d ", &total_parameters);
 
@@ -120,8 +120,8 @@ int main() {
         }
         case CREATE_INDEX: {
             /* Specify which data file you want to indexate (create a bin. file that will keep record of
-             * all records' primary keys (IDs') and RRNs/byteoffsets (used to find them on data file)), so we can find
-             * them faster.
+             * all records' primary keys (IDs') and RRNs/byteoffsets (used to find them on data file)), so it'll be
+             * possible to find them faster.
              * index with id + RRN -> only if working with constant sized's records (FIXED)
              * index with id + byteoffset -> only if working with variable sized's records (VARIABLE)
             */
@@ -145,7 +145,8 @@ int main() {
         case REMOVE_RECORDS: {
             /*
              * Specify in which data file you want to delete records. It will also be necessary to get its index file so
-             * we can update it (removing in there the primary key and the RRN/byteoffset of the deleted records).
+             * it'll be possible to update it (removing in there the primary key and the RRN/byteoffset of the deleted 
+             * records).
              */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
@@ -169,7 +170,8 @@ int main() {
         case INSERT_RECORDS: {
             /*
              * Specify in which data file you want to insert records. It will also be necessary to get its index file so
-             * we can update it (adding in there the primary key and the RRN/byteoffset of the new inserted records).
+             * it'll be possible to update it (adding in there the primary key and the RRN/byteoffset of the new 
+             * inserted records).
              */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
@@ -192,15 +194,14 @@ int main() {
         case UPDATE_RECORDS: {
             /*
              * Specify in which data file you want to update records. It will also be necessary to get its index file so
-             * we can update it (sometimes removing & re-adding in there the primary key and the RRN/byteoffset of the
-             * updated records).
+             * it'll be possible to update it (sometimes removing & re-adding in there the primary key and the 
+             * RRN/byteoffset of the updated records).
              */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
             int total_updates; scanf("%d ", &total_updates);
             int status = update_records_command(data_filename, index_filename, total_updates, filetype);
-//            int status = update_records_command(data_path, index_path, total_updates, filetype);
 
             if (status != ERROR_CODE) {
                 binarioNaTela(data_filename);
