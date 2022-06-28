@@ -791,7 +791,7 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
         return ++num_updated;
     }
 
-    // We don't have the `id`. Look into the data file for the records to be updated.
+    // The `id` is not a field present in filter. Look into the data file for the records to be updated.
     else {
 
         // Iterate through the records that exist.
@@ -801,7 +801,7 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
             fseek(stream, byteoffset, SEEK_SET);
 
             // Read record information and compare it with filter,
-            // deciding wether to update it or not
+            // deciding whether to update it or not
             data record = fread_record(stream, true);
             int status = verify_record(record, filter);
             if (status == ERROR_CODE)
