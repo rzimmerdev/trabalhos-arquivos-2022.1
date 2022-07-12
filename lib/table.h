@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include "record.h"
-#include "index.h"
+#include "index/index.h"
 
 #ifndef T1_TABLE_H
 #define T1_TABLE_H

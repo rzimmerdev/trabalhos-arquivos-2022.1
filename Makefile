@@ -1,4 +1,4 @@
-dependencies = lib/utils.o lib/record.o lib/table.o lib/index.o src/csv_utils.o src/commands.o
+dependencies = lib/utils.o lib/record.o lib/table.o lib/index/index.o src/csv_utils.o src/commands.o
 individual_case = 15
 
 trabalho = 1

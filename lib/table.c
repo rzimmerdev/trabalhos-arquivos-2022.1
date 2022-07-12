@@ -3,7 +3,7 @@
 
 #include "record.h"
 #include "table.h"
-#include "index.h"
+#include "index/index.h"
 
 
 void write_header(FILE *stream, header placeholder, bool is_fixed, bool rewrite) {

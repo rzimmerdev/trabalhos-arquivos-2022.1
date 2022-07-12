@@ -4,8 +4,8 @@
 #include <string.h>
 
 
-#include "record.h"
-#include "table.h"
+#include "../record.h"
+#include "../table.h"
 #include "index.h"
 
 
