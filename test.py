@@ -5,10 +5,8 @@ import sys
 # Roda dentro do diretório bin/,
 # sugerível deixar arquivos nesse diretório, mas dá pra alterar o código pra poder rodar em outro lugar
 
-trabalho = 2
 
-
-def test_cases(idx=None):
+def test_cases(trabalho, idx=None):
     input_dir = f"cases{trabalho}/in"
     output_dir = f"cases{trabalho}/out"
 
@@ -44,12 +42,10 @@ def test_cases(idx=None):
 
 
 def main():
-    if len(sys.argv) > 2:
-        test_cases((int(sys.argv[1]), int(sys.argv[2])))
-    elif len(sys.argv) > 1:
-        test_cases((int(sys.argv[1]), int(sys.argv[1])))
-    else:
-        test_cases()
+    if len(sys.argv) > 3:
+        test_cases(int(sys.argv[1]), (int(sys.argv[2]), int(sys.argv[3])))
+    elif len(sys.argv) > 2:
+        test_cases(int(sys.argv[1]), (int(sys.argv[2]), int(sys.argv[2])))
 
 
 if __name__ == "__main__":

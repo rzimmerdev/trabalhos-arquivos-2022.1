@@ -34,8 +34,24 @@ tree_node read_node(FILE *stream, bool is_fixed) {
 }
 
 
-data tree_find_by_id(tree_index index, int id) {
+int tree_find_by_id(FILE *stream, int id, bool is_fixed) {
+    fseek(stream, sizeof(char), SEEK_SET);
 
+    int current_rrn;
+    fread(&current_rrn, sizeof(int), 1, stream);
+
+    tree_node current = {.type = '\0'};
+    while (current_rrn != -1) {
+        current = read_node(stream, is_fixed);
+
+        for (int i = 0; i < current.num_keys; i++) {
+
+            if (id < current.keys[i])
+                current_rrn =
+        }
+    }
+
+    return current_rrn;
 }
 
 

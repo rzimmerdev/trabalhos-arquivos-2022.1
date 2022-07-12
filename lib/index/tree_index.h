@@ -17,14 +17,6 @@ typedef struct TreeHeader_t {
 } tree_header;
 
 
-typedef struct TreeArray_t {
-
-    char *filename;
-    tree_header header;
-
-} tree_index;
-
-
 typedef struct TreeNode_t {
 
     char type;
@@ -37,5 +29,7 @@ typedef struct TreeNode_t {
 
     int children[4];
 } tree_node;
+
+int tree_find_by_id(FILE *stream, int id, bool is_fixed);
 
 #endif //FAST_INDEX_H
