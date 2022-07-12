@@ -22,10 +22,10 @@ typedef struct TreeNode_t {
     char type;
     int num_keys;
 
-    int keys[4];
+    int keys[3];
 
-    int rrns[4];
-    long int byteoffsets[4];
+    int rrns[3];
+    long int byteoffsets[3];
 
     int children[4];
 } tree_node;
