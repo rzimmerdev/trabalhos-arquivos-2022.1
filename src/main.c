@@ -28,9 +28,9 @@ typedef enum Command_t {
     REMOVE_RECORDS = 6,
     INSERT_RECORDS = 7,
     UPDATE_RECORDS = 8,
-    CREATE_BT_INDEX = 9,
-    SELECT_WHERE_BT = 10,
-    INSERT_INTO_BT = 11
+    CREATE_BTREE_INDEX = 9,
+    SELECT_WHERE_BTREE = 10,
+    INSERT_INTO_BTREE = 11
 } command;
 
 // Possible filetype encodings to be used when reading or writing binary files:
@@ -216,14 +216,30 @@ int main() {
 
             break;
         }
-        case CREATE_BT_INDEX: {
+        case CREATE_BTREE_INDEX: {
             break;
         }
-        case SELECT_WHERE_BT: {
+        case SELECT_WHERE_BTREE: {
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+
+            free(scan_word());
+
+            int id;
+            scanf("%d ", &id);
+
+            int status = select_id_command(data_filename, index_filename, id, filetype);
+
+            if (status == ERROR_CODE)
+                printf("Falha no processamento do arquivo.");
+            else if (status == NOT_FOUND)
+                printf("Registro inexistente.\n");
+
+            free(data_filename);
+            free(index_filename);
             break;
         }
-        case INSERT_INTO_BT: {
-            
+        case INSERT_INTO_BTREE: {
             break;
         }
     }

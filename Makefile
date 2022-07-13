@@ -1,7 +1,7 @@
 dependencies = lib/utils.o lib/record.o lib/table.o lib/index/index.o lib/index/tree_index.o src/csv_utils.o src/commands.o
-individual_case = 15
+individual_case = 9
 
-trabalho = 1
+trabalho = 3
 
 cases_input = cases$(trabalho)/in
 cases_output = cases$(trabalho)/out

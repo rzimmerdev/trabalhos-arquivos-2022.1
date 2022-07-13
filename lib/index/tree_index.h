@@ -1,6 +1,10 @@
 #ifndef TREE_INDEX_H
 #define TREE_INDEX_H
 
+
+#define INDEX_SIZE_FIXED 45
+#define INDEX_SIZE_VARIABLE 57
+
 // Valores de retorno para insercao
 #define PROMOTION 1 // Quando insercao eh feita e uma chave eh promovida (no cheio/overflow)
 #define NO_PROMOTION 0 // Quando insercao eh feita e nenhuma chave eh promovida (no com espaco livre)
@@ -18,8 +22,6 @@ typedef struct TreeHeader_t {
     int root_rrn;
     int next_rrn;
     int total_nodes;
-
-    int null_size;
 
 } tree_header;
 
@@ -39,6 +41,9 @@ typedef struct TreeNode_t {
     int children[4];
 } tree_node;
 
-int tree_find_by_id(FILE *stream, int id, bool is_fixed);
+tree_node read_node(FILE *stream, bool is_fixed);
+
+long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed);
+
 
 #endif //TREE_INDEX_H

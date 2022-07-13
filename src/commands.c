@@ -7,6 +7,8 @@
 #include "../lib/utils.h"
 #include "../lib/record.h"
 #include "../lib/table.h"
+#include "../lib/index/tree_index.h"
+
 #include "commands.h"
 #include "csv_utils.h"
 
@@ -262,7 +264,7 @@ int select_rrn_command(char *bin_filename, int rrn) {
     }
 
     // Calculate RRN based on the generic formulae below:
-    int byte_offset = rrn * 97 + FIXED_HEADER;
+    long int byte_offset = rrn * 97 + FIXED_HEADER;
 
     // Navigate to byte_offset calculated position
     fseek(stream, byte_offset, SEEK_SET);
@@ -476,6 +478,37 @@ int update_records_command(char *data_filename, char *index_filename, int total_
     // writing back to index file is performed only after all deletions are made
     array_to_index(index, is_fixed);
     free_index_array(&index);
+
+    return SUCCESS_CODE;
+}
+
+
+int select_id_command(char *data_filename, char *index_filename, int id, bool is_fixed) {
+    if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
+        return ERROR_CODE;
+
+    FILE *btree_stream = fopen(index_filename, "r");
+
+    int rrn_found; int pos_found = 0;
+    fseek(btree_stream, sizeof(char), SEEK_SET);
+    fread(&rrn_found, sizeof(int), 1, btree_stream);
+
+    key identifier = {.id = id};
+    long int status = tree_search_identifier(btree_stream, identifier, &rrn_found, &pos_found, is_fixed);
+    fclose(btree_stream);
+
+    if (status == NOT_FOUND)
+        return NOT_FOUND;
+
+    FILE *data_stream = fopen(data_filename, "r");
+    long int byteoffset = status;
+    fseek(data_stream, byteoffset, SEEK_SET);
+
+    data record = fread_record(data_stream, is_fixed);
+    printf_record(record);
+    free_record(record);
+
+    fclose(data_stream);
 
     return SUCCESS_CODE;
 }
