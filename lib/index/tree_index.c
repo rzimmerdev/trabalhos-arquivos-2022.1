@@ -2,7 +2,45 @@
 #include <stdio.h>
 
 #include "../record.h"
+#include "../table.h"
 #include "tree_index.h"
+
+
+tree_header read_header(FILE *stream, bool is_fixed) {
+
+    tree_header header = {};
+    fseek(stream, 0, SEEK_SET);
+
+    fread(&header.status, sizeof(char), 1, stream);
+    fread(&header.root_rrn, sizeof(int), 1, stream);
+    fread(&header.next_rrn, sizeof(int), 1, stream);
+    fread(&header.total_nodes, sizeof(int), 1, stream);
+
+    fseek(stream, is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE, SEEK_SET);
+
+    return header;
+}
+
+
+void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is_fixed) {
+
+    fseek(stream, 0, SEEK_SET);
+
+    fwrite(&header.status, sizeof(char), 1, stream);
+    fwrite(&header.root_rrn, sizeof(int), 1, stream);
+    fwrite(&header.next_rrn, sizeof(int), 1, stream);
+    fwrite(&header.total_nodes, sizeof(int), 1, stream);
+
+    if (!is_repeat) {
+        fseek(stream, is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE, SEEK_SET);
+        return;
+    }
+
+    for (int i = 0; i < (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE); i++) {
+        fwrite(&GARBAGE, sizeof(char), 1, stream);
+    }
+}
+
 
 tree_node read_node(FILE *stream, bool is_fixed) {
     /*
@@ -57,7 +95,7 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
         return (long int) NOT_FOUND;
 
     // Calculate the current node byteoffset based on the current searched node
-    long int byteoffset = (*rrn_found + 1) * (is_fixed ? 45 : 57);
+    long int byteoffset = (*rrn_found + 1) * (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE);
 
     // Seek to calculated byteoffset, and read node at the specific position to search identifier at
     fseek(stream, byteoffset, SEEK_SET);
@@ -122,7 +160,25 @@ int insert_into_tree(int curr_rrn, key to_insert, key *promoted, int *promoted_r
 }
 
 
-void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
+void create_tree_index(FILE *stream, char *index_filename, header *data_header, bool is_fixed) {
+    int current_rrn = 0;
 
+    FILE *index_stream = fopen(index_filename, "wb+");
+    tree_header header = {.status = 0, .root_rrn = 0, .total_nodes = 0, .next_rrn = 0};
+    write_tree_header(stream, header, false, is_fixed);
 
+    int total_nodes = 0;
+    while (current_rrn < (data_header->next_rrn - 1) || (ftell(stream) < data_header->next_byteoffset - 1)) {
+
+        data current_record = fread_record(stream, is_fixed);
+
+        key to_insert = {.id = current_record.id, .rrn = current_rrn, .byteoffset = ftell(stream)};
+        // TODO: Use to_insert as a key to insert within the index file
+        total_nodes++;
+    }
+    header.status = 1;
+    header.total_nodes = total_nodes;
+    header.next_rrn = total_nodes * (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE);
+    write_tree_header(stream, header, true, is_fixed);
+    fclose(index_stream);
 }

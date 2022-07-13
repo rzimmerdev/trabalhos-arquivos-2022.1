@@ -1,6 +1,10 @@
 #ifndef TREE_INDEX_H
 #define TREE_INDEX_H
 
+
+#define INDEX_SIZE_FIXED 45
+#define INDEX_SIZE_VARIABLE 57
+
 // Valores de retorno para insercao
 #define PROMOTION 1 // Quando insercao eh feita e uma chave eh promovida (no cheio/overflow)
 #define NO_PROMOTION 0 // Quando insercao eh feita e nenhuma chave eh promovida (no com espaco livre)
@@ -12,8 +16,6 @@ typedef struct TreeHeader_t {
     int root_rrn;
     int next_rrn;
     int total_nodes;
-
-    int null_size;
 
 } tree_header;
 
