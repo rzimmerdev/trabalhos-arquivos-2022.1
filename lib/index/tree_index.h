@@ -4,7 +4,13 @@
 // Valores de retorno para insercao
 #define PROMOTION 1 // Quando insercao eh feita e uma chave eh promovida (no cheio/overflow)
 #define NO_PROMOTION 0 // Quando insercao eh feita e nenhuma chave eh promovida (no com espaco livre)
-#define ERROR -1 // Quando uma chave sendo inserida ja existe na btree (indice de chave primaria)
+#define INSERT_ERROR -2 // Quando uma chave sendo inserida ja existe na btree (indice de chave primaria)
+
+#define NODE_NOT_FOUND -1 // Para identificar no folha na insercao
+
+// Tamanhos dos registros do indice/arvore
+#define BT_FIXED_SIZE 45 // para arquivo de tipo 1
+#define BT_VARIABLE_SIZE 57 // para arquivo de tipo 2
 
 typedef struct TreeHeader_t {
 
