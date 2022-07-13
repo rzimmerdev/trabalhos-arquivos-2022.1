@@ -2,8 +2,9 @@
 #define TREE_INDEX_H
 
 
-#define INDEX_SIZE_FIXED 45
-#define INDEX_SIZE_VARIABLE 57
+// Tamanhos dos registros do indice/arvore
+#define INDEX_SIZE_FIXED 45 // para arquivo de tipo 1
+#define INDEX_SIZE_VARIABLE 57 // para arquivo de tipo 2
 
 // Valores de retorno para insercao
 #define PROMOTION 1 // Quando insercao eh feita e uma chave eh promovida (no cheio/overflow)
@@ -12,9 +13,8 @@
 
 #define NODE_NOT_FOUND -1 // Para identificar no folha na insercao
 
-// Tamanhos dos registros do indice/arvore
-#define BT_FIXED_SIZE 45 // para arquivo de tipo 1
-#define BT_VARIABLE_SIZE 57 // para arquivo de tipo 2
+// Qtde maxima de chaves em um no da arvore
+#define MAX_KEY_AMT 3
 
 typedef struct TreeHeader_t {
 

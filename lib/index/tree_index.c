@@ -106,7 +106,7 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
     // Search all key pairs within the node, based on the num_keys field also inside the node
     for (*pos_found = 0; *pos_found < current.num_keys; (*pos_found)++) {
 
-        // If any identifiers matches with the desired one, return a SUCCES_CODE
+        // If any identifiers matches with the desired one, return a SUCCESS_CODE
         if (identifier.id == current.keys[*pos_found].id)
             return is_fixed ? (current.keys[*pos_found].rrn * FIXED_REG_SIZE + FIXED_HEADER) : current.keys[*pos_found].byteoffset;
         // Otherwise, keep iterating until not at desired sorted key position
@@ -117,7 +117,8 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
     // Set rrn_found value to the next position to search for, and call the
     // search function recursively
     *rrn_found = current.children[*pos_found];
-    return tree_search_identifier(stream, identifier, rrn_found, pos_found, is_fixed);
+    
+    return tree_search_identifier(stream, identifier, rrn_found, pos_found, is_fixed); 
 }
 
 // Para posicionar o ponteiro do arquivo de indice no no desejado
@@ -126,15 +127,55 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
 
     if (is_fixed) {
         // Calculate RRN based on the generic formulae below:
-        byte_offset = rrn * BT_FIXED_SIZE + BT_FIXED_SIZE;
+        byte_offset = rrn * INDEX_SIZE_FIXED + INDEX_SIZE_FIXED;
     }
 
     else {
-        byte_offset = rrn * BT_VARIABLE_SIZE + BT_VARIABLE_SIZE;
+        byte_offset = rrn * INDEX_SIZE_VARIABLE + INDEX_SIZE_VARIABLE;
     }
 
     // Navigate to byte_offset calculated position
     fseek(b_tree, byte_offset, SEEK_SET);
+}
+
+/*
+ * Tratamento do overflow causado pela insercao de uma chave.
+ * - Cria uma nova pagina;
+ * - Distribui as chaves o mais uniformemente possivel entre a pag. ja existente
+ * e aquela a ser criada;
+ * - Determina quais chaves e RRNs serao promovidos.
+ * 
+ * Parametros:
+ * - key to_insert -> nova chave a ser inserida
+ * - int *to_insert_right_child -> referencia para filho a direita da nova chave a ser inserida
+ * - tree_node curr_page -> pagina de disco corrente
+ * - key promoted -> chave promovida
+ * - int prom_right_child -> filho a direita da chave promovida
+ * - tree_node *new_page -> referencia para nova pagina de disco.
+ * 
+ */
+void split(key to_insert, int *to_insert_right_child, tree_node curr_page, key promoted, int prom_right_child, tree_node *new_page) {
+    // Trazer todas as chaves e 'ponteiros'/descendentes da pagina de disco atual para
+    // um espaco capaz de segurar uma chave e um filho extra
+    key all_keys[4];
+    int all_children[5];
+
+    // Essa informacao nao muda
+    all_children[0] = curr_page.children[0];
+
+    // Inserir ordenado dentro do espaco
+    for (int i = 0; i < 5; i++) {
+        if (to_insert.id > curr_page.keys[i].id) {
+            all_keys[i] = curr_page.keys[i];
+            all_children[i + 1] = curr_page.children[i + 1];
+        }
+
+        else {
+            all_keys[i] = to_insert;
+            all_children[i + 1] = to_insert_right_child;
+        }
+    }
+    
 }
 
 /*
@@ -151,6 +192,7 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
  * 
  * Parametros:
  * - FILE *b_tree -> ponteiro para arquivo da arvore
+ * - bool is_fixed -> determina o tipo de arquivo de dados trabalhado (1 ou 2)
  * - int curr_rrn -> rrn da pagina da arvore B atualmente em uso (no inicio, a raiz). Eh a pagina
  * a ser pesquisada
  * - key to_insert -> chave a ser inserida
@@ -161,8 +203,10 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
  * ser inserida em um no de nivel mais alto da arvore, como tambem deve-se inserir o RRN da nova
  * pagina criada no particionamento.
  * 
+ * 
+ * Retorno: int -> pode ser PROMOTION, INSERT_ERROR ou NO_PROMOTION.
  */
-void insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
+int insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
     // Eh aqui que se deve inserir a chave (no-folha - construcao bottom up)
     if (curr_rrn == NODE_NOT_FOUND) {
         *promoted = to_insert; // Para subir um nivel na recursao e inserir
@@ -179,8 +223,48 @@ void insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, 
     
     // Pesquisar a pagina, procurando a chave de busca
         // Precisa usar uma parte da f. de tree_search_identifier
+
+    // Search all key pairs within the node/page, based on the num_keys field also inside the node
+    int position = -1;
+    for (int i = 0; i < curr_page.num_keys; i++) {
+        position = i; // Onde a chave ocorreu ou deveria estar
+
+        // Chave encontrada - nao inserir duplicata
+        if (to_insert.id == curr_page.keys[i].id) {
+
+            return INSERT_ERROR;
+        }
+
+        // Onde a chave deveria estar
+        if (to_insert.id < curr_page.keys[i].id) {
+            break;
+        }
+    }
+
+    // A chave de busca nao foi encontrada, portanto procure a chave de busca no
+    // no filho.
+    int return_value = insert_into_tree(b_tree, is_fixed, curr_page.children[position], to_insert, promoted, prom_right_child);
     
+    if (return_value == NO_PROMOTION || return_value == INSERT_ERROR) {
+        return return_value;
+    }
+
+    // Insercao da chave sem particionamento
+    if (curr_page.num_keys < MAX_KEY_AMT) {
+        curr_page.keys[position] = to_insert; 
+
+        return NO_PROMOTION; 
+    }
+
+    // Insercao da chave com particionamento/split
+    int to_insert_right_child = -1;
+    tree_node new_page = {};
+    split(to_insert, &to_insert_right_child, curr_page, *promoted, prom_right_child, &new_page);
+
+    // Escrever paginas/nos 
+    // (curr_page e new_page)
     
+    return PROMOTION;
 }
 
 
