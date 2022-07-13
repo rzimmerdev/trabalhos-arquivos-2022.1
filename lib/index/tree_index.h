@@ -45,6 +45,6 @@ tree_node read_node(FILE *stream, bool is_fixed);
 
 long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed);
 
-int insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child);
+int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child);
 
 #endif //TREE_INDEX_H

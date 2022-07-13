@@ -44,6 +44,36 @@ void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is
 }
 
 
+void write_node(FILE *stream, bool is_fixed, tree_node node) {
+    // Write common fields, those being the node type, as well as how many keys the node has.
+    fwrite(&node.type, sizeof(char), 1, stream);
+    fwrite(&node.num_keys, sizeof(int), 1, stream);
+
+    int i = 0;
+
+    // Write key fields (id + rrn or byteoffset) into the keys array.
+    // Contains the identifier, as well as the identifier locator within
+    // the original data file.
+    if (is_fixed) {
+        for (; i < 3; i++) {
+            fwrite(&node.keys[i].id, sizeof(int), 1, stream);
+            fwrite(&node.keys[i].rrn, sizeof(int), 1, stream);
+
+        }
+    } else {
+        for (; i < 3; i++) {
+            fwrite(&node.keys[i].id, sizeof(int), 1, stream);
+            fwrite(&node.keys[i].byteoffset, sizeof(long int), 1, stream);
+        }
+    }
+
+    // Finally, write rrn for the node's child nodes, being either a valid integer or -1 if the node has
+    // no child at specific key position.
+    for (i = 0; i < 4; i++) {
+        fwrite(&node.children[i], sizeof(int), 1, stream);
+    }
+}
+
 tree_node read_node(FILE *stream, bool is_fixed) {
     /*
      * Reads a node from a given B-Tree file stream.
@@ -150,11 +180,10 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
  * - int inserted_r_child -> referencia para filho a direita da nova chave a ser inserida
  * - tree_node *curr_page -> referencia da pagina de disco corrente
  * - key *promoted -> referencia da chave promovida
- * - int *prom_r_child -> filho a direita da chave promovida
  * - tree_node *new_page -> referencia para nova pagina de disco.
  * 
  */
-void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promoted, int *prom_r_child, tree_node *new_page) {
+void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promoted, tree_node *new_page) {
     // Trazer todas as chaves e 'ponteiros'/descendentes da pagina de disco atual para
     // um espaco capaz de segurar uma chave e um filho extra
     key all_keys[4];
@@ -189,26 +218,36 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     // Promover chave que esta no meio
     *promoted = all_keys[2];
 
-    // Atribuir o RRN da nova pagina
-    *prom_r_child = all_children[3];
-
     // Copiar chaves e 'ponteiros' para filhos que antecedem a chave promovida
     // -> da pagina auxiliar para a pagina atual do indice
-    int i = 0;
-    while (promoted->id > all_keys[i].id) {
-        curr_page->keys[i] = all_keys[i];
-        curr_page->children[i + 1] = all_children[i + 1];
-        i++;
-    }
+    curr_page->keys[0] = all_keys[0];
+    curr_page->children[1] = all_children[1];
+
+    curr_page->keys[1] = all_keys[1];
+    curr_page->children[2] = all_children[2];
+
+    curr_page->keys[2].id = -1;
+    curr_page->keys[2].rrn = -1;
+    curr_page->keys[2].byteoffset = -1;
+
+    curr_page->children[3] = -1;
 
     // Copiar chaves e 'ponteiros' para filhos que sucedem a chave promovida
     // -> da pagina auxiliar para a nova pagina do indice
-    int i = 0;
-    while (promoted->id < all_keys[i].id) {
-        new_page->keys[i] = all_keys[i];
-        new_page->children[i + 1] = all_children[i + 1];
-        i++;
-    }
+    new_page->children[0] = all_children[3];
+
+    new_page->keys[0] = all_keys[3];
+    new_page->children[1] = all_children[4];
+
+    new_page->keys[1].id = -1;
+    new_page->keys[1].rrn = -1;
+    new_page->keys[1].byteoffset = -1;
+    new_page->children[2] = -1;
+
+    new_page->keys[2].id = -1;
+    new_page->keys[2].rrn = -1;
+    new_page->keys[2].byteoffset = -1;
+    new_page->children[3] = -1;
 }
 
 /*
@@ -225,6 +264,7 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
  * 
  * Parametros:
  * - FILE *b_tree -> ponteiro para arquivo da arvore
+ * tree_header header -> cabecalho de arvore em RAM
  * - bool is_fixed -> determina o tipo de arquivo de dados trabalhado (1 ou 2)
  * - int curr_rrn -> rrn da pagina da arvore B atualmente em uso (no inicio, a raiz). Eh a pagina
  * a ser pesquisada
@@ -239,7 +279,7 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
  * 
  * Retorno: int -> pode ser PROMOTION, INSERT_ERROR ou NO_PROMOTION.
  */
-int insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
+int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
     // Eh aqui que se deve inserir a chave (no-folha - construcao bottom up)
     if (curr_rrn == NODE_NOT_FOUND) {
         *promoted = to_insert; // Para subir um nivel na recursao e inserir
@@ -280,7 +320,7 @@ int insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, k
     // Chave e RRN promovidos do nivel inferior para serem inseridos na pagina de disco atual
     key key_promoted_to_curr = {};
     int rrn_promoted_to_curr = -1;
-    int return_value = insert_into_tree(b_tree, is_fixed, curr_page.children[position], to_insert, &key_promoted_to_curr, &rrn_promoted_to_curr);
+    int return_value = insert_into_tree(b_tree, header, is_fixed, curr_page.children[position], to_insert, &key_promoted_to_curr, &rrn_promoted_to_curr);
     
     if (return_value == NO_PROMOTION || return_value == INSERT_ERROR) {
         return return_value;
@@ -307,16 +347,22 @@ int insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, k
 
     // Insercao da chave com particionamento/split
     tree_node new_page = {};
-    int new_page_rrn = -1;
-    split(key_promoted_to_curr, rrn_promoted_to_curr, &curr_page, promoted, prom_right_child, &new_page);
+    split(key_promoted_to_curr, rrn_promoted_to_curr, &curr_page, promoted, &new_page);
+
+    // O RRN promovido eh o de newpage (new_page eh a descendente direita da chave promovida)
+    int new_page_rrn = (header->next_rrn)++;
+    *prom_right_child = new_page_rrn;
 
     // Escrever paginas/nos 
     // (curr_page e new_page)
-    // alocar e inicializar nova pagina no arquivo da B tree para a new_page
-    
+    seek_node(b_tree, curr_rrn, is_fixed);
+    write_node(b_tree, is_fixed, curr_page);
+
+    seek_node(b_tree, new_page_rrn, is_fixed);
+    write_node(b_tree, is_fixed, new_page);
+
     return PROMOTION;
 }
-
 
 void create_tree_index(FILE *stream, char *index_filename, header *data_header, bool is_fixed) {
     int current_rrn = 0;
