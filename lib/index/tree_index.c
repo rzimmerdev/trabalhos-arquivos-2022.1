@@ -147,35 +147,56 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
  * 
  * Parametros:
  * - key to_insert -> nova chave a ser inserida
- * - int *to_insert_right_child -> referencia para filho a direita da nova chave a ser inserida
- * - tree_node curr_page -> pagina de disco corrente
- * - key promoted -> chave promovida
- * - int prom_right_child -> filho a direita da chave promovida
+ * - int *inserted_r_child -> referencia para filho a direita da nova chave a ser inserida
+ * - tree_node *curr_page -> referencia da pagina de disco corrente
+ * - key *promoted -> referencia da chave promovida
+ * - int *prom_r_child -> filho a direita da chave promovida
  * - tree_node *new_page -> referencia para nova pagina de disco.
+ * - tree_node *new_rrn -> referencia para rrn da nova pagina de disco.
  * 
  */
-void split(key to_insert, int *to_insert_right_child, tree_node curr_page, key promoted, int prom_right_child, tree_node *new_page) {
+void split(key to_insert, int *inserted_r_child, tree_node *curr_page, key *promoted, int *prom_r_child, tree_node *new_page, int *new_rrn) {
     // Trazer todas as chaves e 'ponteiros'/descendentes da pagina de disco atual para
     // um espaco capaz de segurar uma chave e um filho extra
     key all_keys[4];
     int all_children[5];
 
     // Essa informacao nao muda
-    all_children[0] = curr_page.children[0];
+    all_children[0] = curr_page->children[0];
 
     // Inserir ordenado dentro do espaco
     for (int i = 0; i < 5; i++) {
-        if (to_insert.id > curr_page.keys[i].id) {
-            all_keys[i] = curr_page.keys[i];
-            all_children[i + 1] = curr_page.children[i + 1];
+        if (to_insert.id > curr_page->keys[i].id) {
+            all_keys[i] = curr_page->keys[i];
+            all_children[i + 1] = curr_page->children[i + 1];
         }
 
         else {
             all_keys[i] = to_insert;
-            all_children[i + 1] = to_insert_right_child;
+            all_children[i + 1] = inserted_r_child;
         }
     }
+
+    // O RRN da nova pagina sera o filho direito da chave promovida (pois insercao sempre a direita)
+    *new_rrn = *prom_r_child;
     
+    // Copiar chaves e 'ponteiros' para filhos que antecedem a chave promovida
+    // -> da pagina auxiliar para a pagina atual do indice
+    int i = 0;
+    while (promoted->id > all_keys[i].id) {
+        curr_page->keys[i] = all_keys[i];
+        curr_page->children[i + 1] = all_children[i + 1];
+        i++;
+    }
+
+    // Copiar chaves e 'ponteiros' para filhos que sucedem a chave promovida
+    // -> da pagina auxiliar para a nova pagina do indice
+    int i = 0;
+    while (promoted->id < all_keys[i].id) {
+        new_page->keys[i] = all_keys[i];
+        new_page->children[i + 1] = all_children[i + 1];
+        i++;
+    }
 }
 
 /*
@@ -259,10 +280,12 @@ int insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, k
     // Insercao da chave com particionamento/split
     int to_insert_right_child = -1;
     tree_node new_page = {};
-    split(to_insert, &to_insert_right_child, curr_page, *promoted, prom_right_child, &new_page);
+    int new_page_rrn = -1;
+    split(to_insert, &to_insert_right_child, &curr_page, promoted, &prom_right_child, &new_page, &new_page_rrn);
 
     // Escrever paginas/nos 
     // (curr_page e new_page)
+    // alocar e inicializar nova pagina no arquivo da B tree para a new_page
     
     return PROMOTION;
 }

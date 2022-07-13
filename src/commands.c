@@ -512,3 +512,42 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
 
     return SUCCESS_CODE;
 }
+
+// Ainda arrumando essa funcao
+int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
+    // Testing the existance of both files, and expecting valid status for both
+    if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
+        return ERROR_CODE;
+
+    FILE *data_stream = fopen(data_filename, "rb+");
+    update_status(data_stream, BAD_STATUS);
+
+    header file_header = fread_header(data_stream, is_fixed);
+
+    // Loading index to RAM #
+    // index_array index = index_to_array(index_filename, is_fixed);
+
+    // Reading functionality's 11 entry format
+    for (int i = 0; i < total_insertions; i++) {
+        data curr_insertion = read_record_entry(is_fixed);
+
+        // insert_into_tree(data_stream, is_fixed, )
+        // insert_into(data_stream, &index, curr_insertion, is_fixed, &file_header);
+        free_record(curr_insertion);
+    }
+
+    // Writing header on the file to disk
+    // write_header(data_stream, file_header, is_fixed, 0);
+
+    // To finish writing on the data file, set status as OK_STATUS
+    update_status(data_stream, OK_STATUS);
+    fclose(data_stream);
+
+    // Writes index array stored in RAM back to index file,
+    // thus greatly optimizing previous index operations speeds as
+    // writing back to index file is performed only after all deletions are made
+    // array_to_index(index, is_fixed);
+    free_index_array(&index);
+    
+    return SUCCESS_CODE;
+}

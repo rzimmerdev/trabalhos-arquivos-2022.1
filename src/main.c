@@ -42,7 +42,7 @@ typedef enum Filetype_t {
 
 
 int main() {
-    // Choosing funcionality 
+    // Choosing functionality 
     int option, filetype;
     scanf("%d ", &option);
 
@@ -240,6 +240,21 @@ int main() {
             break;
         }
         case INSERT_INTO_BTREE: {
+            char *data_filename = scan_word();
+            char *index_filename = scan_word();
+
+            int total_insertions; scanf("%d ", &total_insertions);
+
+            int status = insert_into_btree_command(data_filename, index_filename, total_insertions, filetype);
+
+            if (status != ERROR_CODE) {
+                binarioNaTela(data_filename);
+                binarioNaTela(index_filename);
+            }
+            else
+                printf("Falha no processamento do arquivo.");
+            free(data_filename);
+            free(index_filename);
             break;
         }
     }
