@@ -35,7 +35,7 @@ typedef struct TreeNode_t {
 
 tree_node read_node(FILE *stream, bool is_fixed);
 
-int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed);
+long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed);
 
 
 #endif //TREE_INDEX_H

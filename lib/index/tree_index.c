@@ -45,7 +45,7 @@ tree_node read_node(FILE *stream, bool is_fixed) {
 }
 
 
-int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed) {
+long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed) {
     /*
      * Searches a B-Tree recursively up until a leaf node is found, in which case the function
      * returns a NOT_FOUND warning. If a node is otherwise found, the rrn_found and pos_found values
@@ -54,7 +54,7 @@ int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *po
      */
     // If rrn is -1, meaning a leaf node has been reached, return a register NOT_FOUND warning.
     if (*rrn_found == -1)
-        return NOT_FOUND;
+        return (long int) NOT_FOUND;
 
     // Calculate the current node byteoffset based on the current searched node
     long int byteoffset = (*rrn_found + 1) * (is_fixed ? 45 : 57);
@@ -68,8 +68,7 @@ int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *po
 
         // If any identifiers matches with the desired one, return a SUCCES_CODE
         if (identifier.id == current.keys[*pos_found].id)
-            return SUCCESS_CODE;
-
+            return is_fixed ? (current.keys[*pos_found].rrn * FIXED_REG_SIZE + FIXED_HEADER) : current.keys[*pos_found].byteoffset;
         // Otherwise, keep iterating until not at desired sorted key position
         if (identifier.id < current.keys[*pos_found].id)
             break;

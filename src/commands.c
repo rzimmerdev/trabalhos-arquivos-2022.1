@@ -487,7 +487,6 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
-    FILE *data_stream = fopen(data_filename, "r");
     FILE *btree_stream = fopen(index_filename, "r");
 
     int rrn_found; int pos_found = 0;
@@ -495,24 +494,20 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
     fread(&rrn_found, sizeof(int), 1, btree_stream);
 
     key identifier = {.id = id};
-    int status = tree_search_identifier(btree_stream, identifier, &rrn_found, &pos_found, is_fixed);
-    if (status == NOT_FOUND) {
-        fclose(btree_stream);
-        fclose(data_stream);
+    long int status = tree_search_identifier(btree_stream, identifier, &rrn_found, &pos_found, is_fixed);
+    fclose(btree_stream);
+
+    if (status == NOT_FOUND)
         return NOT_FOUND;
-    }
 
-    fseek(btree_stream, (rrn_found + 1) * (is_fixed ? 45 : 57), SEEK_SET);
-    tree_node parent = read_node(btree_stream, is_fixed);
-
-    long int byteoffset = is_fixed ? (parent.keys[pos_found].rrn * FIXED_REG_SIZE + FIXED_HEADER) : parent.keys[pos_found].byteoffset;
+    FILE *data_stream = fopen(data_filename, "r");
+    long int byteoffset = status;
     fseek(data_stream, byteoffset, SEEK_SET);
-    data record = fread_record(data_stream, is_fixed);
 
+    data record = fread_record(data_stream, is_fixed);
     printf_record(record);
     free_record(record);
 
-    fclose(btree_stream);
     fclose(data_stream);
 
     return SUCCESS_CODE;
