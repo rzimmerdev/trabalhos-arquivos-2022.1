@@ -174,13 +174,13 @@ void insert_into_tree(FILE *b_tree, bool is_fixed, int curr_rrn, key to_insert, 
     /* Se a pagina nao eh no-folha, chamar a funcao recursivamente ate que ela encontre
      * uma chave com o valor que queremos inserir (ja existente na tree) ou chegue ao no
      * folha para que a insercao do novo no seja feita */
-    else {
-        seek_node(b_tree, curr_rrn, is_fixed);
-        tree_node curr_page;
-        
-        
-
-    }
+    seek_node(b_tree, curr_rrn, is_fixed);
+    tree_node curr_page = read_node(b_tree, is_fixed);
+    
+    // Pesquisar a pagina, procurando a chave de busca
+        // Precisa usar uma parte da f. de tree_search_identifier
+    
+    
 }
 
 
