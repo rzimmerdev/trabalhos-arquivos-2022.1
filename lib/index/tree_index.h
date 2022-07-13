@@ -1,9 +1,10 @@
-//
-// Created by rzimmerdev on 11/07/2022.
-//
-
 #ifndef TREE_INDEX_H
 #define TREE_INDEX_H
+
+// Valores de retorno para insercao
+#define PROMOTION 1 // Quando insercao eh feita e uma chave eh promovida (no cheio/overflow)
+#define NO_PROMOTION 0 // Quando insercao eh feita e nenhuma chave eh promovida (no com espaco livre)
+#define ERROR -1 // Quando uma chave sendo inserida ja existe na btree (indice de chave primaria)
 
 typedef struct TreeHeader_t {
 
