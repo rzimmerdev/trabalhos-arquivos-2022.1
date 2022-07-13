@@ -108,4 +108,7 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
  */
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed);
 
+
+int select_id_command(char *data_filename, char *index_filename, int id, bool is_fixed);
+
 #endif //COMMANDS_H
