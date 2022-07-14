@@ -513,41 +513,61 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
     return SUCCESS_CODE;
 }
 
-// Ainda arrumando essa funcao
 int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
     // Testing the existance of both files, and expecting valid status for both
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_stream = fopen(data_filename, "rb+");
+
     update_status(data_stream, BAD_STATUS);
 
     header file_header = fread_header(data_stream, is_fixed);
 
-    // Loading index to RAM #
-    // index_array index = index_to_array(index_filename, is_fixed);
+    // Loading index header to RAM 
+    FILE *index_stream = fopen(index_filename, "rb+");
+    update_status(index_stream, BAD_STATUS);
+
+    tree_header index_header = read_header(index_stream, is_fixed);
 
     // Reading functionality's 11 entry format
     for (int i = 0; i < total_insertions; i++) {
         data curr_insertion = read_record_entry(is_fixed);
 
-        // insert_into_tree(data_stream, is_fixed, )
-        // insert_into(data_stream, &index, curr_insertion, is_fixed, &file_header);
+        // Inserir registro no arquivo de dados, retornando RRN ou byteoffset de insercao para
+        // utilizar no indice
+        long int new_record_position = data_insert_into(data_stream, curr_insertion, is_fixed, &file_header);
+
+        key to_insert = {};
+        to_insert.id = curr_insertion.id;
+
+        if (is_fixed) {
+            to_insert.rrn = (int)new_record_position;
+        }
+
+        else {
+            to_insert.byteoffset = new_record_position;
+        }
+
+        // Realizar a insercao no indice corretamente ao aplicar o procedimento driver
+        driver_procedure(index_stream, &index_header, is_fixed, to_insert);
+
         free_record(curr_insertion);
     }
 
     // Writing header on the file to disk
-    // write_header(data_stream, file_header, is_fixed, 0);
+    write_header(data_stream, file_header, is_fixed, 0);
 
     // To finish writing on the data file, set status as OK_STATUS
     update_status(data_stream, OK_STATUS);
     fclose(data_stream);
 
-    // Writes index array stored in RAM back to index file,
+    // Writes index header stored in RAM back to index file,
     // thus greatly optimizing previous index operations speeds as
-    // writing back to index file is performed only after all deletions are made
-    // array_to_index(index, is_fixed);
-    free_index_array(&index);
+    // writing back to index file is performed only after all insertions are made
+    write_tree_header(index_stream, index_header, true, is_fixed);
+    update_status(index_stream, OK_STATUS);
+    fclose(index_stream);
     
     return SUCCESS_CODE;
 }

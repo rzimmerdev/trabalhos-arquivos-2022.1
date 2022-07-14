@@ -131,4 +131,6 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
 */
 int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
+long int data_insert_into(FILE *stream, data new_record, bool is_fixed, header *template);
+
 #endif //T1_TABLE_H

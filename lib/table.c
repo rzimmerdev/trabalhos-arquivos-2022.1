@@ -814,3 +814,121 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
         return num_updated;
     }
 }
+
+// Insercao no arquivo de dados. O seu retorno sera utilizado pelo arq. de indice.
+long int data_insert_into(FILE *stream, data new_record, bool is_fixed, header *template) {
+    // Guarda o RRN ou o byteoffset do novo registro a ser inserido
+    long int new_record_pos = -1;
+    
+    if (is_fixed) {
+        // Header top corresponds to the removed records stack top
+        int top_rrn = template->top;
+
+        // Decide if stack is empty, inserting directly into end of file
+        if (top_rrn == EMPTY) {
+            // Find available position to write new record at end of data file and write it to disk
+            int byteoffset = template->next_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+            fseek(stream, byteoffset, SEEK_SET);
+            write_record(stream, new_record, is_fixed);
+
+            // New record rrn is equal to header next_rrn field (before update it to match the rrn that is now occupied)
+            new_record_pos = template->next_rrn;
+
+            // That RRN is now occupied (inserted now record in the end of data file), so increment it
+            template->next_rrn++;
+        }
+
+        // Use dynamic approach to insert new record into already available space inside the table
+        else {
+            // Find available position to write new record where it can be reused
+            int byteoffset = top_rrn * FIXED_REG_SIZE + FIXED_HEADER;
+
+            // As all records have the same size, access stack top to retrieve next rrn of available space.
+            new_record_pos = top_rrn;
+
+            // Seek to next available offset based on template top field
+            fseek(stream, byteoffset + 1, SEEK_SET);
+
+            // Update header field with previously empty record next pointer, as to not
+            // lose track of the stack top after the insertion is made.
+            fread(&template->top, sizeof(int), 1, stream);
+
+            // Now that the space was reused, the data file has less removed records
+            template->num_removed--;
+
+            // Return to start of the empty record field byteoffset, and start writing record to be inserted.
+            fseek(stream, -(sizeof(int) + sizeof(char)), SEEK_CUR);
+            write_record(stream, new_record, is_fixed);
+        }
+    }
+
+    // Record type is the variable sized one
+    else {
+        // Header top corresponds to the removed records list top
+        long int top_byte_offset = template->big_top;
+
+        // Decide if list is empty, inserting directly into end of file
+        if (top_byte_offset == EMPTY) {
+            // Find available byteoffset to write new record at end of data file and write it
+            fseek(stream, template->next_byteoffset, SEEK_SET);
+            write_record(stream, new_record, is_fixed);
+
+            // New record byteoffset is equal to header next_byteoffset field (before update it to match the byteoffset
+            // that is now occupied - the record was already written, and it began in there)
+            new_record_pos = template->next_byteoffset;
+
+            // That byteoffset is now occupied, so get the next available by catching data ptr position after writing the
+            // whole new record.
+            template->next_byteoffset = ftell(stream);
+        }
+
+        // Try to reuse logically removed spaces, if the new record size fits at least one of them
+        else {
+            // Seek to removed record size field (this is the biggest size, 'cause of worst fit's logic, so if the
+            // record does not fit this space, it won't fit any other space).
+            fseek(stream, top_byte_offset + sizeof(char), SEEK_SET);
+
+            int max_reusable_space = 0;
+
+            fread(&max_reusable_space, sizeof(int), 1, stream);
+
+            // If the new record fits the biggest space to reuse on data file, fill it.
+            if (evaluate_record_size(new_record, is_fixed) <= max_reusable_space) {
+                // Update top of removed's list with next byteoffset (that contains a removed record) and its amount
+                fread(&template->big_top, sizeof(long int), 1, stream);
+
+                // Because a space was reused
+                template->num_removed--;
+
+                new_record.size = max_reusable_space;
+
+                // Seek to beginning of record whose space will be reused on data file and write the new record's data
+                // to disk
+                fseek(stream, top_byte_offset, SEEK_SET);
+                write_record(stream, new_record, is_fixed);
+
+                // Set the byteoffset to be added into index file with the byteoffset of the record whose space was
+                // reused, i.e., the byteoffset that is on top of the old list of logically removed records
+                new_record_pos = top_byte_offset;
+
+                // Fill the space that the record still has with GARBAGE
+                fill_with_garbage(stream, max_reusable_space, evaluate_record_size(new_record, is_fixed));
+            }
+
+            // The new record wasn't suitable even to the biggest available space to reuse; insert it into the end of
+            // data file then.
+            else {
+                fseek(stream, 0, SEEK_END);
+                write_record(stream, new_record, is_fixed);
+
+                // Use the next byteoffset that is available to write
+                new_record_pos = template->next_byteoffset;
+
+                // Update next byteoffset available to write new records
+                template->next_byteoffset = ftell(stream);
+            }
+        }
+    }
+
+    return new_record_pos;
+}

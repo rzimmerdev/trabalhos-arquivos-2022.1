@@ -31,7 +31,7 @@ void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is
     fwrite(&header.next_rrn, sizeof(int), 1, stream);
     fwrite(&header.total_nodes, sizeof(int), 1, stream);
 
-    if (!is_repeat) {
+    if (is_repeat) {
         fseek(stream, is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE, SEEK_SET);
         return;
     }
@@ -151,9 +151,10 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
     return tree_search_identifier(stream, identifier, rrn_found, pos_found, is_fixed); 
 }
 
+
 // Para posicionar o ponteiro do arquivo de indice no no desejado
 void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
-    int byte_offset = 0;
+    long int byte_offset = 0;
 
     if (is_fixed) {
         // Calculate RRN based on the generic formulae below:
@@ -166,6 +167,82 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
 
     // Navigate to byte_offset calculated position
     fseek(b_tree, byte_offset, SEEK_SET);
+}
+
+// Funcao para inicializar um no de indice de arvore B
+tree_node create_empty_tree_node() {
+    tree_node new_node = {};
+
+    for (int i = 0; i < 3; i++) {
+        new_node.keys[i].id = -1;
+        new_node.keys[i].rrn = -1;
+        new_node.keys[i].byteoffset = -1;
+        new_node.children[i] = -1;
+    }
+
+    new_node.children[3] = -1;
+    new_node.num_keys = 0;
+    new_node.type = LEAF_NODE;
+
+    return new_node;
+}
+
+/*
+ * Rotina inicializadora e de tratamento da raiz.
+ * - Identifica ou cria a pagina da raiz;
+ * - Le chaves para serem armazenadas na arvore-B e chama a insercao de forma apropriada;
+ * - Cria uma nova raiz quando a insercao particionar a raiz corrente.
+ * 
+ * Parametros:
+ * - FILE *index_stream -> arquivo de indice da arvore-B, ja criado e aberto
+ * - header *index_header -> referencia para o cabecalho da arvore B
+ * - bool is_fixed -> tipo de arquivo de dados
+ */
+void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fixed, key to_insert) {
+    // Arvore vazia -> entao o RRN do no/pagina raiz do indice arvore B vale -1
+    if (index_header->root_rrn == EMPTY_TREE) {
+        // Atualize o no
+        index_header->root_rrn = (index_header->next_rrn)++;
+
+        // Coloque a chave no no raiz
+        tree_node new_node = create_empty_tree_node();
+        (index_header->total_nodes)++;
+
+        new_node.type = ROOT_NODE;
+        (new_node.num_keys)++;
+
+        // Escrever no na arvore
+        seek_node(index_stream, index_header->root_rrn, is_fixed);
+        write_node(index_stream, is_fixed, new_node);
+
+        return;
+    }
+
+    key promoted = {};
+    int prom_right_child = -1;
+    int return_value = insert_into_tree(index_stream, index_header, is_fixed, index_header->root_rrn, to_insert, &promoted, &prom_right_child);
+
+    // Se a promocao expandiu ate a raiz
+    if (return_value == PROMOTION) {
+        // Criar nova pagina de no da arvore
+        tree_node new_node = create_empty_tree_node();
+        (index_header->total_nodes)++;
+        new_node.type = ROOT_NODE;
+        
+        // O novo no deve conter a chave promovida ate esse nivel
+        new_node.keys[0] = promoted;
+        new_node.children[0] = index_header->root_rrn; // Filho a esquerda
+        new_node.children[1] = prom_right_child; // Filho a direita
+
+        (new_node.num_keys)++;
+
+        // Atualize o no raiz
+        index_header->root_rrn = (index_header->next_rrn)++;
+
+        // Escrever no na arvore
+        seek_node(index_stream, index_header->root_rrn, is_fixed);
+        write_node(index_stream, is_fixed, new_node);
+    }
 }
 
 /*
@@ -218,6 +295,25 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     // Promover chave que esta no meio
     *promoted = all_keys[2];
 
+    // Com o split, o tipo do no varia
+    // Testar se curr_page eh no-raiz
+    if (curr_page->type == ROOT_NODE) {
+        // Se a arvore so contiver curr_page (so tem raiz, sem quaisquer filhos)
+        if (curr_page->children[0] == NODE_NOT_FOUND) {
+            // Se torna um no folha com o split
+            curr_page->type = LEAF_NODE;
+        }
+
+        // Se tem curr_page como raiz, com filhos,
+        else {
+            // Se torna no intermediario com o split
+            curr_page->type = INTERMEDIATE_NODE;
+        }
+    }
+    // A nova pagina eh inserida na mesma altura da curr_page, entao seus
+    // tipos sao iguais
+    new_page->type = curr_page->type;
+
     // Copiar chaves e 'ponteiros' para filhos que antecedem a chave promovida
     // -> da pagina auxiliar para a pagina atual do indice
     curr_page->keys[0] = all_keys[0];
@@ -231,6 +327,7 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     curr_page->keys[2].byteoffset = -1;
 
     curr_page->children[3] = -1;
+    curr_page->num_keys = 2;
 
     // Copiar chaves e 'ponteiros' para filhos que sucedem a chave promovida
     // -> da pagina auxiliar para a nova pagina do indice
@@ -248,6 +345,7 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     new_page->keys[2].rrn = -1;
     new_page->keys[2].byteoffset = -1;
     new_page->children[3] = -1;
+    new_page->num_keys = 1;
 }
 
 /*
@@ -283,7 +381,7 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     // Eh aqui que se deve inserir a chave (no-folha - construcao bottom up)
     if (curr_rrn == NODE_NOT_FOUND) {
         *promoted = to_insert; // Para subir um nivel na recursao e inserir
-        prom_right_child = -1; // Porque eh no-folha
+        *prom_right_child = -1; // Porque eh no-folha
 
         return PROMOTION;
     }
@@ -336,11 +434,15 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
         }
 
         // Atualiza o numero de chaves (com a insercao, eh adicionada uma chave a mais na pagina)
-        curr_page.num_keys++;
+        (curr_page.num_keys)++;
 
         // Atualizar chave a ser inserida e seu filho direito
         curr_page.keys[position] = key_promoted_to_curr; 
         curr_page.children[position + 1] = rrn_promoted_to_curr;
+
+        // Escrever a pagina/no
+        seek_node(b_tree, curr_rrn, is_fixed);
+        write_node(b_tree, is_fixed, curr_page);
 
         return NO_PROMOTION; 
     }
@@ -348,6 +450,9 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     // Insercao da chave com particionamento/split
     tree_node new_page = {};
     split(key_promoted_to_curr, rrn_promoted_to_curr, &curr_page, promoted, &new_page);
+
+    // Atualizar total de nos inseridos na arvore (aumentou pelo split)
+    (header->total_nodes)++;
 
     // O RRN promovido eh o de newpage (new_page eh a descendente direita da chave promovida)
     int new_page_rrn = (header->next_rrn)++;

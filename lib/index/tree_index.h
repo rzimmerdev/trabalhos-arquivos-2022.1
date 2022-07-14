@@ -16,6 +16,13 @@
 // Qtde maxima de chaves em um no da arvore
 #define MAX_KEY_AMT 3
 
+#define EMPTY_TREE -1
+
+// Tipos de no de arvore
+#define ROOT_NODE '0'
+#define INTERMEDIATE_NODE '1'
+#define LEAF_NODE '2'
+
 typedef struct TreeHeader_t {
 
     char status;
@@ -43,7 +50,13 @@ typedef struct TreeNode_t {
 
 tree_node read_node(FILE *stream, bool is_fixed);
 
+tree_header read_header(FILE *stream, bool is_fixed);
+
+void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is_fixed);
+
 long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed);
+
+void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fixed, key to_insert);
 
 int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child);
 
