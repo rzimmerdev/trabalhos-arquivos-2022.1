@@ -173,7 +173,7 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
 tree_node create_empty_tree_node() {
     tree_node new_node = {};
 
-    key empty = {.id = -1, .rrn = -1, .byteoffset = 1};
+    key empty = {.id = -1, .rrn = -1, .byteoffset = -1};
     for (int i = 0; i < 3; i++) {
         new_node.keys[i] = empty;
         new_node.children[i] = -1;
