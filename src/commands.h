@@ -113,4 +113,6 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
 
 int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed);
 
+int create_btree_index_command(char *data_filename, char *index_filename, bool is_fixed);
+
 #endif //COMMANDS_H

@@ -48,9 +48,9 @@ typedef struct TreeNode_t {
     int children[4];
 } tree_node;
 
-tree_node read_node(FILE *stream, bool is_fixed);
+tree_node fread_node(FILE *stream, bool is_fixed);
 
-tree_header read_header(FILE *stream, bool is_fixed);
+tree_header fread_tree_header(FILE *stream, bool is_fixed);
 
 void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is_fixed);
 
@@ -59,5 +59,7 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
 void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fixed, key to_insert);
 
 int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child);
+
+void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed);
 
 #endif //TREE_INDEX_H

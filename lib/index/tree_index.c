@@ -6,7 +6,7 @@
 #include "tree_index.h"
 
 
-tree_header read_header(FILE *stream, bool is_fixed) {
+tree_header fread_tree_header(FILE *stream, bool is_fixed) {
 
     tree_header header = {};
     fseek(stream, 0, SEEK_SET);
@@ -74,7 +74,7 @@ void write_node(FILE *stream, bool is_fixed, tree_node node) {
     }
 }
 
-tree_node read_node(FILE *stream, bool is_fixed) {
+tree_node fread_node(FILE *stream, bool is_fixed) {
     /*
      * Reads a node from a given B-Tree file stream.
      * Must be previously placed at seek position beforehand.
@@ -132,7 +132,7 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
 
     // Seek to calculated byteoffset, and read node at the specific position to search identifier at
     fseek(stream, byteoffset, SEEK_SET);
-    tree_node current = read_node(stream, is_fixed);
+    tree_node current = fread_node(stream, is_fixed);
 
     // Search all key pairs within the node, based on the num_keys field also inside the node
     for (*pos_found = 0; *pos_found < current.num_keys; (*pos_found)++) {
@@ -410,7 +410,7 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
      * uma chave com o valor que queremos inserir (ja existente na tree) ou chegue ao no
      * folha para que a insercao do novo no seja feita */
     seek_node(b_tree, curr_rrn, is_fixed);
-    tree_node curr_page = read_node(b_tree, is_fixed);
+    tree_node curr_page = fread_node(b_tree, is_fixed);
 
     // Pesquisar a pagina, procurando a chave de busca
 
@@ -486,25 +486,41 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     return PROMOTION;
 }
 
-void create_tree_index(FILE *stream, char *index_filename, header *data_header, bool is_fixed) {
+void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
+    /*
+     * Create an index file based on an origin stream of records, with given is_fixed file encoding.
+     * Resulting index file is saved to stream of type index_stream.
+     */
+
+    // Read header from within origin_stream to iterate
+    // over available records according to total records available
+    header table_header = fread_header(origin_stream, is_fixed);
+    tree_header index_header = fread_tree_header(index_stream, is_fixed);
+
     int current_rrn = 0;
+    long int current_byteoffset = VARIABLE_HEADER;
 
-    FILE *index_stream = fopen(index_filename, "wb+");
-    tree_header header = {.status = 0, .root_rrn = 0, .total_nodes = 0, .next_rrn = 0};
-    write_tree_header(stream, header, false, is_fixed);
+    // Iterate over origin stream while not at pre-calculated end position, which
+    // depends on the selected encoding type
+    while ((is_fixed && (current_rrn < table_header.next_rrn)) || (!is_fixed && current_byteoffset < table_header.next_byteoffset)) {
 
-    int total_nodes = 0;
-    while (current_rrn < (data_header->next_rrn - 1) || (ftell(stream) < data_header->next_byteoffset - 1)) {
+        // Reads an individual record from stream, and skips if it is
+        // logically marked as removed
+        data to_insert = fread_record(origin_stream, is_fixed);
+        if (to_insert.removed == IS_REMOVED) {
+            current_rrn += 1;
+            current_byteoffset = ftell(origin_stream);
 
-        data current_record = fread_record(stream, is_fixed);
+            free_record(to_insert);
+            continue;
+        }
 
-        key to_insert = {.id = current_record.id, .rrn = current_rrn, .byteoffset = ftell(stream)};
-        // TODO: Use to_insert as a key to insert within the index file
-        total_nodes++;
+        key to_indexate = {.id = to_insert.id, .rrn = current_rrn, .byteoffset = current_byteoffset};
+
+        printf("%d %d\n", to_indexate.id, to_indexate.rrn);
+//        driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
+        current_rrn += 1;
+        current_byteoffset += to_insert.size + 5;
+        free_record(to_insert);
     }
-    header.status = 1;
-    header.total_nodes = total_nodes;
-    header.next_rrn = total_nodes * (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE);
-    write_tree_header(stream, header, true, is_fixed);
-    fclose(index_stream);
 }

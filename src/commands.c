@@ -528,31 +528,31 @@ int insert_into_btree_command(char *data_filename, char *index_filename, int tot
     FILE *index_stream = fopen(index_filename, "rb+");
     update_status(index_stream, BAD_STATUS);
 
-    tree_header index_header = read_header(index_stream, is_fixed);
+    tree_header index_header = fread_tree_header(index_stream, is_fixed);
 
     // Reading functionality's 11 entry format
     for (int i = 0; i < total_insertions; i++) {
-        data curr_insertion = read_record_entry(is_fixed);
+        data to_insert = read_record_entry(is_fixed);
 
         // Inserir registro no arquivo de dados, retornando RRN ou byteoffset de insercao para
         // utilizar no indice
-        long int new_record_position = data_insert_into(data_stream, curr_insertion, is_fixed, &file_header);
+        long int new_record_position = data_insert_into(data_stream, to_insert, is_fixed, &file_header);
 
-        key to_insert = {};
-        to_insert.id = curr_insertion.id;
+        key to_indexate = {};
+        to_indexate.id = to_insert.id;
 
         if (is_fixed) {
-            to_insert.rrn = (int)new_record_position;
+            to_indexate.rrn = (int) new_record_position;
         }
 
         else {
-            to_insert.byteoffset = new_record_position;
+            to_indexate.byteoffset = new_record_position;
         }
 
         // Realizar a insercao no indice corretamente ao aplicar o procedimento driver
-        driver_procedure(index_stream, &index_header, is_fixed, to_insert);
+        driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
 
-        free_record(curr_insertion);
+        free_record(to_insert);
     }
 
     // Writing header on the file to disk
@@ -569,5 +569,37 @@ int insert_into_btree_command(char *data_filename, char *index_filename, int tot
     update_status(index_stream, OK_STATUS);
     fclose(index_stream);
     
+    return SUCCESS_CODE;
+}
+
+int create_btree_index_command(char *data_filename, char *index_filename, bool is_fixed) {
+    /*
+     * Creates an index table with index_filename, based on records read
+     * from input data file, with specified file encoding
+     * Indexes are created as pairs of id's and rrn's or byteoffset's, depending
+     * on the input record type.
+     */
+
+    // Verify integrity and existance of only the data files,
+    // by marking the verify_index field as false
+    if (verify_stream(data_filename, index_filename, false) == ERROR_CODE)
+        return ERROR_CODE;
+
+    // Open data file for reading
+    FILE *original_stream = fopen(data_filename, "rb");
+
+    // Open index file for writting, and update status field to
+    // account for any possible file corruptions
+    FILE *index_stream = fopen(index_filename, "wb");
+    update_status(index_stream, BAD_STATUS);
+
+    create_tree_index(original_stream, index_stream, is_fixed);
+    fclose(original_stream);
+
+    // After performing operations, update status field
+    // and close index file
+    update_status(index_stream, OK_STATUS);
+    fclose(index_stream);
+
     return SUCCESS_CODE;
 }
