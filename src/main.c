@@ -18,7 +18,8 @@
 #include "../lib/utils.h"
 #include "commands.h"
 
-// Available op codes to be used for eleven different commands
+// Available op codes to be used for eleven different commands that control data and/or indexate
+// it.
 typedef enum Command_t {
     CREATE_TABLE = 1,
     SELECT = 2,
@@ -34,7 +35,8 @@ typedef enum Command_t {
 } command;
 
 // Possible filetype encodings to be used when reading or writing binary files:
-// file has constant size (called FIXED) or it can change and depends on each specific record (called VARIABLE)
+// records on file have constant size (called FIXED) or it can change and depends 
+// on each specific record (called VARIABLE)
 typedef enum Filetype_t {
     FIXED = 1,
     VARIABLE = 0
@@ -249,6 +251,13 @@ int main() {
             break;
         }
         case SELECT_WHERE_BTREE: {
+            /*
+             * Specify in which data file you want to recover the record's data. In order 
+             * to do so, get the id field as search criteria. The search will be performed
+             * on the index ('cause the record is already indexated), so it'll be possible
+             * to access the record's info directly on data file. In the end, the matching
+             * record is displayed.
+            */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
@@ -269,6 +278,11 @@ int main() {
             break;
         }
         case INSERT_INTO_BTREE: {
+            /*
+             * Specify in which data file you want to insert records. It will also be necessary to get its index/btree 
+             * file so it'll be possible to update it (adding in there the primary key and the RRN/byteoffset of the new 
+             * inserted records).
+             */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
