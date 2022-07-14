@@ -96,12 +96,13 @@ tree_node read_node(FILE *stream, bool is_fixed) {
         for (; i < 3; i++) {
             fread(&node_read.keys[i].id, sizeof(int), 1, stream);
             fread(&node_read.keys[i].rrn, sizeof(int), 1, stream);
-
+            node_read.keys[i].byteoffset = -1;
         }
     } else {
         for (; i < 3; i++) {
             fread(&node_read.keys[i].id, sizeof(int), 1, stream);
             fread(&node_read.keys[i].byteoffset, sizeof(long int), 1, stream);
+            node_read.keys[i].rrn = -1;
         }
     }
 
@@ -166,7 +167,7 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
     }
 
     // Navigate to byte_offset calculated position
-    fseek(b_tree, byte_offset, SEEK_SET);
+    fseek(b_tree, byte_offset, SEEK_SET); // Erro de memoria aqui
 }
 
 // Funcao para inicializar um no de indice de arvore B
@@ -264,6 +265,13 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     // Trazer todas as chaves e 'ponteiros'/descendentes da pagina de disco atual para
     // um espaco capaz de segurar uma chave e um filho extra
     key all_keys[4];
+
+    for (int i = 0; i < 4; i++) {
+        all_keys[i].id = -1;
+        all_keys[i].byteoffset = -1;
+        all_keys[i].rrn = -1;
+    }
+
     int all_children[5];
 
     // Essa informacao nao muda
@@ -273,7 +281,9 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     int insert_position = -1;
     bool found_position = false;
     for (int i = 0; i < 3; i++) {
-        all_keys[i] = curr_page->keys[i];
+        all_keys[i].id = curr_page->keys[i].id;
+        all_keys[i].byteoffset = curr_page->keys[i].byteoffset;
+        all_keys[i].rrn = curr_page->keys[i].rrn;
         all_children[i + 1] = curr_page->children[i + 1];
 
         if (!found_position && to_insert.id < curr_page->keys[i].id) {
@@ -282,11 +292,21 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
         }
     }
 
+    // Se nao achou a posicao ainda, significa que a chave a ser inserida tem o maior id
+    // de todos e deve ser inserida no fim
+    if (!found_position) {
+        insert_position = 3;
+    }
+
     // Shiftar para inserir a nova chave na pos. correta
     for (int i = 2; i >= insert_position; i--) {
-        all_keys[i + 1] = all_keys[i];
+        all_keys[i + 1].id = all_keys[i].id;
+        all_keys[i + 1].byteoffset = all_keys[i].byteoffset;
+        all_keys[i + 1].rrn = all_keys[i].rrn;
+
         all_children[i + 2] = all_children[i + 1];
     }
+
 
     // Inserindo nova chave
     all_keys[insert_position] = to_insert;
@@ -391,27 +411,24 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
      * folha para que a insercao do novo no seja feita */
     seek_node(b_tree, curr_rrn, is_fixed);
     tree_node curr_page = read_node(b_tree, is_fixed);
-    
+
     // Pesquisar a pagina, procurando a chave de busca
-        // Precisa usar uma parte da f. de tree_search_identifier
 
     // Search all key pairs within the node/page, based on the num_keys field also inside the node
-    int position = -1;
-    for (int i = 0; i < curr_page.num_keys; i++) {
-        position = i; // Onde a chave ocorreu ou deveria estar
-
+    int position = 0;
+    for (; position < curr_page.num_keys; position++) {
         // Chave encontrada - nao inserir duplicata
-        if (to_insert.id == curr_page.keys[i].id) {
+        if (to_insert.id == curr_page.keys[position].id) {
 
             return INSERT_ERROR;
         }
 
         // Onde a chave deveria estar
-        if (to_insert.id < curr_page.keys[i].id) {
+        if (to_insert.id < curr_page.keys[position].id) {
             break;
         }
     }
-
+    
     // A chave de busca nao foi encontrada, portanto procure a chave de busca no
     // no filho.
 
@@ -448,7 +465,7 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     }
 
     // Insercao da chave com particionamento/split
-    tree_node new_page = {};
+    tree_node new_page = {}; 
     split(key_promoted_to_curr, rrn_promoted_to_curr, &curr_page, promoted, &new_page);
 
     // Atualizar total de nos inseridos na arvore (aumentou pelo split)

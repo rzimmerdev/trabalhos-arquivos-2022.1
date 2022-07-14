@@ -217,6 +217,35 @@ int main() {
             break;
         }
         case CREATE_BTREE_INDEX: {
+            /*char *data_filename = scan_word();
+            char *index_filename = scan_word();
+
+            char *data_path = (char *) malloc((5 + (int)strlen(data_filename)) * sizeof(char));
+            data_path[0] = '\0';
+
+            char *index_path = (char *) malloc((5 + (int)strlen(index_filename)) * sizeof(char));
+            index_path[0] = '\0';
+
+            strcpy(data_path, "bin/");
+            strcat(data_path, data_filename);
+            strcpy(index_path, "bin/");
+            strcat(index_path, index_filename);
+
+            // TODO: criar funcao de comando para a criacao de indice
+            int status = create_btree_index_command();
+
+            if (status != ERROR_CODE) {
+                binarioNaTela(data_path);
+                binarioNaTela(index_path);
+            }
+            else
+                printf("Falha no processamento do arquivo.");
+            free(data_filename);
+            free(index_filename);
+
+            free(data_path);
+            free(index_path);*/
+
             break;
         }
         case SELECT_WHERE_BTREE: {
