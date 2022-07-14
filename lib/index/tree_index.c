@@ -36,9 +36,9 @@ void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is
         return;
     }
 
-    for (int i = 0; i < (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE); i++) {
+    for (int i = 0; i < (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE) - 1; i++) {
         char garbage = GARBAGE;
-        
+
         fwrite(&garbage, sizeof(char), 1, stream);
     }
 }
@@ -48,7 +48,6 @@ void write_node(FILE *stream, bool is_fixed, tree_node node) {
     // Write common fields, those being the node type, as well as how many keys the node has.
     fwrite(&node.type, sizeof(char), 1, stream);
     fwrite(&node.num_keys, sizeof(int), 1, stream);
-
     int i = 0;
 
     // Write key fields (id + rrn or byteoffset) into the keys array.
@@ -174,10 +173,9 @@ void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
 tree_node create_empty_tree_node() {
     tree_node new_node = {};
 
+    key empty = {.id = -1, .rrn = -1, .byteoffset = 1};
     for (int i = 0; i < 3; i++) {
-        new_node.keys[i].id = -1;
-        new_node.keys[i].rrn = -1;
-        new_node.keys[i].byteoffset = -1;
+        new_node.keys[i] = empty;
         new_node.children[i] = -1;
     }
 
@@ -203,19 +201,21 @@ void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fix
     // Arvore vazia -> entao o RRN do no/pagina raiz do indice arvore B vale -1
     if (index_header->root_rrn == EMPTY_TREE) {
         // Atualize o no
-        index_header->root_rrn = (index_header->next_rrn)++;
+        index_header->root_rrn = index_header->next_rrn;
 
         // Coloque a chave no no raiz
         tree_node new_node = create_empty_tree_node();
-        (index_header->total_nodes)++;
-
+        new_node.num_keys = 1;
         new_node.type = ROOT_NODE;
-        (new_node.num_keys)++;
+        new_node.keys[0] = to_insert;
+
+        (index_header->total_nodes)++;
 
         // Escrever no na arvore
         seek_node(index_stream, index_header->root_rrn, is_fixed);
         write_node(index_stream, is_fixed, new_node);
 
+        (index_header->next_rrn)++;
         return;
     }
 
@@ -229,7 +229,7 @@ void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fix
         tree_node new_node = create_empty_tree_node();
         (index_header->total_nodes)++;
         new_node.type = ROOT_NODE;
-        
+
         // O novo no deve conter a chave promovida ate esse nivel
         new_node.keys[0] = promoted;
         new_node.children[0] = index_header->root_rrn; // Filho a esquerda
@@ -495,14 +495,15 @@ void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
     // Read header from within origin_stream to iterate
     // over available records according to total records available
     header table_header = fread_header(origin_stream, is_fixed);
-    tree_header index_header = fread_tree_header(index_stream, is_fixed);
+    tree_header index_header = {.status = BAD_STATUS[0], .next_rrn = 0, .root_rrn = -1, .total_nodes = 0};
+    write_tree_header(index_stream, index_header, false, is_fixed);
 
     int current_rrn = 0;
     long int current_byteoffset = VARIABLE_HEADER;
 
     // Iterate over origin stream while not at pre-calculated end position, which
     // depends on the selected encoding type
-    while ((is_fixed && (current_rrn < table_header.next_rrn)) || (!is_fixed && current_byteoffset < table_header.next_byteoffset)) {
+    while (current_rrn < 2 && (is_fixed && (current_rrn < table_header.next_rrn)) || (!is_fixed && current_byteoffset < table_header.next_byteoffset)) {
 
         // Reads an individual record from stream, and skips if it is
         // logically marked as removed
@@ -516,11 +517,14 @@ void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
         }
 
         key to_indexate = {.id = to_insert.id, .rrn = current_rrn, .byteoffset = current_byteoffset};
-
-        printf("%d %d\n", to_indexate.id, to_indexate.rrn);
-//        driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
+        printf("%d %d\n", to_insert.id, current_rrn);
+        driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
         current_rrn += 1;
         current_byteoffset += to_insert.size + 5;
         free_record(to_insert);
     }
+    printf("%ld\n", ftell(index_stream));
+    index_header.status = OK_STATUS[0];
+
+    write_tree_header(index_stream, index_header, true, is_fixed);
 }
