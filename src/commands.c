@@ -590,7 +590,7 @@ int create_btree_index_command(char *data_filename, char *index_filename, bool i
 
     // Open index file for writting, and update status field to
     // account for any possible file corruptions
-    FILE *index_stream = fopen(index_filename, "wb");
+    FILE *index_stream = fopen(index_filename, "wb+");
     update_status(index_stream, BAD_STATUS);
 
     create_tree_index(original_stream, index_stream, is_fixed);

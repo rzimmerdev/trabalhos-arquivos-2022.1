@@ -405,7 +405,6 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
 
         return PROMOTION;
     }
-
     /* Se a pagina nao eh no-folha, chamar a funcao recursivamente ate que ela encontre
      * uma chave com o valor que queremos inserir (ja existente na tree) ou chegue ao no
      * folha para que a insercao do novo no seja feita */
@@ -419,7 +418,6 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     for (; position < curr_page.num_keys; position++) {
         // Chave encontrada - nao inserir duplicata
         if (to_insert.id == curr_page.keys[position].id) {
-
             return INSERT_ERROR;
         }
 
@@ -428,15 +426,15 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
             break;
         }
     }
-    
-    // A chave de busca nao foi encontrada, portanto procure a chave de busca no
-    // no filho.
+
+    // A chave de busca nao foi encontrada, portanto procure a chave de busca no filho.
 
     // Chave e RRN promovidos do nivel inferior para serem inseridos na pagina de disco atual
     key key_promoted_to_curr = {};
     int rrn_promoted_to_curr = -1;
-    int return_value = insert_into_tree(b_tree, header, is_fixed, curr_page.children[position], to_insert, &key_promoted_to_curr, &rrn_promoted_to_curr);
-    
+    int return_value = insert_into_tree(b_tree, header, is_fixed, curr_page.children[position], to_insert,
+                                        &key_promoted_to_curr, &rrn_promoted_to_curr);
+
     if (return_value == NO_PROMOTION || return_value == INSERT_ERROR) {
         return return_value;
     }
@@ -454,18 +452,18 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
         (curr_page.num_keys)++;
 
         // Atualizar chave a ser inserida e seu filho direito
-        curr_page.keys[position] = key_promoted_to_curr; 
+        curr_page.keys[position] = key_promoted_to_curr;
         curr_page.children[position + 1] = rrn_promoted_to_curr;
 
         // Escrever a pagina/no
         seek_node(b_tree, curr_rrn, is_fixed);
         write_node(b_tree, is_fixed, curr_page);
 
-        return NO_PROMOTION; 
+        return NO_PROMOTION;
     }
 
     // Insercao da chave com particionamento/split
-    tree_node new_page = {}; 
+    tree_node new_page = {};
     split(key_promoted_to_curr, rrn_promoted_to_curr, &curr_page, promoted, &new_page);
 
     // Atualizar total de nos inseridos na arvore (aumentou pelo split)
@@ -475,7 +473,7 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     int new_page_rrn = (header->next_rrn)++;
     *prom_right_child = new_page_rrn;
 
-    // Escrever paginas/nos 
+    // Escrever paginas/nos
     // (curr_page e new_page)
     seek_node(b_tree, curr_rrn, is_fixed);
     write_node(b_tree, is_fixed, curr_page);
@@ -503,7 +501,7 @@ void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
 
     // Iterate over origin stream while not at pre-calculated end position, which
     // depends on the selected encoding type
-    while (current_rrn < 2 && (is_fixed && (current_rrn < table_header.next_rrn)) || (!is_fixed && current_byteoffset < table_header.next_byteoffset)) {
+    while ((is_fixed && (current_rrn < table_header.next_rrn)) || (!is_fixed && current_byteoffset < table_header.next_byteoffset)) {
 
         // Reads an individual record from stream, and skips if it is
         // logically marked as removed
@@ -517,13 +515,11 @@ void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
         }
 
         key to_indexate = {.id = to_insert.id, .rrn = current_rrn, .byteoffset = current_byteoffset};
-        printf("%d %d\n", to_insert.id, current_rrn);
         driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
         current_rrn += 1;
         current_byteoffset += to_insert.size + 5;
         free_record(to_insert);
     }
-    printf("%ld\n", ftell(index_stream));
     index_header.status = OK_STATUS[0];
 
     write_tree_header(index_stream, index_header, true, is_fixed);
