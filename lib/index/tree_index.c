@@ -235,24 +235,23 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
 void seek_node(FILE *stream, int rrn, bool is_fixed) {
 
     // Calculate byteoffset value based on the predetermined size of each index node
-    long int byteoffset = (rrn + 1) * (is_fixed ? INDEX_SIZE_FIXED: INDEX_SIZE_VARIABLE);
+    long int byteoffset = (rrn + 1) * (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE);
 
     // Seek to byteoffset calculated position
     fseek(stream, byteoffset, SEEK_SET);
 }
 
-
-// Funcao para inicializar um no de indice de arvore B
+// To initialize a b-tree's index node (without keys and all values are -1/invalid/EMPTY)
 tree_node create_empty_tree_node() {
     tree_node new_node = {};
 
-    key empty = {.id = -1, .rrn = -1, .byteoffset = -1};
+    key empty = {.id = EMPTY, .rrn = EMPTY, .byteoffset = EMPTY};
     for (int i = 0; i < 3; i++) {
         new_node.keys[i] = empty;
-        new_node.children[i] = -1;
+        new_node.children[i] = EMPTY;
     }
 
-    new_node.children[3] = -1;
+    new_node.children[3] = EMPTY;
     new_node.num_keys = 0;
     new_node.type = LEAF_NODE;
 
@@ -260,31 +259,33 @@ tree_node create_empty_tree_node() {
 }
 
 /*
- * Rotina inicializadora e de tratamento da raiz.
- * - Identifica ou cria a pagina da raiz;
- * - Le chaves para serem armazenadas na arvore-B e chama a insercao de forma apropriada;
- * - Cria uma nova raiz quando a insercao particionar a raiz corrente.
+ * Initializer routine to make insertions into tree - it treats the root by:
+ * - Identifying or creating root page/node (if it still does not exist);
+ * - Reading keys to be kept inside b-tree and calling insert_into_tree() properly, guaranteeing
+ * safe parameters' conditions;
+ * - Creating a new root when insert_into_tree() partitionates the current one.
  * 
- * Parametros:
- * - FILE *index_stream -> arquivo de indice da arvore-B, ja criado e aberto
- * - header *index_header -> referencia para o cabecalho da arvore B
- * - bool is_fixed -> tipo de arquivo de dados
+ * Args:
+ * - FILE *index_stream -> b-tree's index file, already created and opened
+ * - header *index_header -> pointer to b-tree's header (so it can be changed by insertion inside this function)
+ * - bool is_fixed -> data filetype
  */
 void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fixed, key to_insert) {
-    // Arvore vazia -> entao o RRN do no/pagina raiz do indice arvore B vale -1
+    // Empty b-tree -> RRN of b-tree's root page/node is -1 
     if (index_header->root_rrn == EMPTY_TREE) {
-        // Atualize o no
+        // Updates the root node with next RRN available
         index_header->root_rrn = index_header->next_rrn;
 
-        // Coloque a chave no no raiz
+        // Puts new received key to be inserted on root node
         tree_node new_node = create_empty_tree_node();
         new_node.num_keys = 1;
         new_node.type = ROOT_NODE;
         new_node.keys[0] = to_insert;
 
+        // Updates number of nodes on b-tree
         (index_header->total_nodes)++;
 
-        // Escrever no na arvore
+        // Writes new node on b-tree file
         seek_node(index_stream, index_header->root_rrn, is_fixed);
         write_node(index_stream, is_fixed, new_node);
 
@@ -292,28 +293,34 @@ void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fix
         return;
     }
 
+    // Tree is not empty. Call recursive insertion and initialize possible promoted keys (promotion
+    // can be propagated and used after insert_into_tree()).
     key promoted = {};
-    int prom_right_child = -1;
+    int prom_right_child = EMPTY;
     int return_value = insert_into_tree(index_stream, index_header, is_fixed, index_header->root_rrn, to_insert, &promoted, &prom_right_child);
 
-    // Se a promocao expandiu ate a raiz
+    // In case promotion propagates all way to root
     if (return_value == PROMOTION) {
-        // Criar nova pagina de no da arvore
+        // It's necessary to create a new b-tree's node/disk page
         tree_node new_node = create_empty_tree_node();
         (index_header->total_nodes)++;
+
+        // A new root will be created
         new_node.type = ROOT_NODE;
 
-        // O novo no deve conter a chave promovida ate esse nivel
+        // New root should contain the key that was promoted up to this level
         new_node.keys[0] = promoted;
-        new_node.children[0] = index_header->root_rrn; // Filho a esquerda
-        new_node.children[1] = prom_right_child; // Filho a direita
+
+        // Connecting the new root with previous information on top of b-tree
+        new_node.children[0] = index_header->root_rrn; // Previous root becomes left child
+        new_node.children[1] = prom_right_child; // Right child
 
         (new_node.num_keys)++;
 
-        // Atualize o no raiz
+        // Updates root node
         index_header->root_rrn = (index_header->next_rrn)++;
 
-        // Escrever no na arvore
+        // Writes node into b-tree (search's beginning will change with the new root's RRN)
         seek_node(index_stream, index_header->root_rrn, is_fixed);
         write_node(index_stream, is_fixed, new_node);
     }
@@ -441,70 +448,74 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     new_page->num_keys = 1;
 }
 
+
 /*
- * Inicia-se com uma pesquisa que desce ate o nivel dos nos folhas. Uma vez
- * escolhido o no folha no qual a nova chave deve ser inserida, os processos de 
- * insercao, particionamento/split e promocao propagam-se em direcao a raiz
- * (construcao bottom-up).
+ * Function called inside driver_procedure() and inside create_tree_index(). It begins with
+ * a search by the root, following to the level of leaf nodes (top-bottom). Since the leaf 
+ * node where the received key should be inserted is found (its correct position inside the b-tree),
+ * processes of insertion, partition/split and key promotion propagate, beginning on the 
+ * leaves' level and following to the tree's root (bottom-up construction of the tree).
  *
- * A insercao conta com um procedimento recursivo. As fases da funcionalidade sao:
- * - busca pela pagina (pesquisa da pagina antes da chamada recursiva);
- * - chamada recursiva (move a operacao para niveis inferiores da arvore)
- * - insercao, split e promotion - executados apos chamada recursiva. A propagacao
- * destes ocorre no retorno da recursao.
+ * The insertion process is recursive. Its phases are:
+ * - search for the correct page/node to insert new key (before recursive call);
+ * - recursive call (sending inserting operation to b-tree's inferior levels)
+ * - insertion, split and promotion (executed after recursive call. The propagation of these
+ * occurs on recursion's returns).
  * 
- * Parametros:
- * - FILE *stream -> ponteiro para arquivo da arvore
- * tree_header header -> cabecalho de arvore em RAM
- * - bool is_fixed -> determina o tipo de arquivo de dados trabalhado (1 ou 2)
- * - int curr_rrn -> rrn da pagina da arvore B atualmente em uso (no inicio, a raiz). Eh a pagina
- * a ser pesquisada
- * - key to_insert -> chave a ser inserida
- * - key *promoted -> referencia da chave promovida, caso a insercao resulte no
- * particionamento e na promocao da chave
- * - int *prom_right_child -> referencia para o filho direito da chave promovida (promoted).
- * Eh um RRN, usado para quando ocorrer particionamento, pois nao somente a chave promovida deve
- * ser inserida em um no de nivel mais alto da arvore, como tambem deve-se inserir o RRN da nova
- * pagina criada no particionamento.
+ * Args:
+ * - FILE *b_tree -> pointer to b-tree's/index file
+ * - tree_header *header -> b-tree's header loaded on RAM
+ * - bool is_fixed -> data filetype
+ * - int curr_rrn -> RRN of current used b-tree's page (the start value is the root). It's the page
+ * to be searched (its value changes during the execution of function)
+ * - key to_insert -> key to be inserted
+ * - key *promoted -> reference of promoted key, in case insertion results on partitioning and
+ * key promotion
+ * - int *prom_right_child -> reference to the right child of promoted key. It's a RRN, used
+ * when a partitioning occurs, 'cause both promoted key and the newpage's RRN (created by partitioning)
+ * should be inserted in a superior level node inside b-tree.
  * 
- * 
- * Retorno: int -> pode ser PROMOTION, INSERT_ERROR ou NO_PROMOTION.
+ * Returns: 
+ *     int -> can be PROMOTION, INSERT_ERROR or NO_PROMOTION.
  */
 int insert_into_tree(FILE *stream, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
-    // Eh aqui que se deve inserir a chave (no-folha - construcao bottom up)
+    // This is where key should be inserted (when recursion comes back, it reaches leaf node -> bottom-up construction
+    // of b-tree)
     if (curr_rrn == NODE_NOT_FOUND) {
-        *promoted = to_insert; // Para subir um nivel na recursao e inserir
-        *prom_right_child = -1; // Porque eh no-folha
+        *promoted = to_insert; // Go up a level on recursion and insert key (it has already reached the max bottom of b-tree)
+        *prom_right_child = EMPTY; // A key can only be inserted on a leaf node, so it has no child
 
         return PROMOTION;
     }
-    /* Se a pagina nao eh no-folha, chamar a funcao recursivamente ate que ela encontre
-     * uma chave com o valor que queremos inserir (ja existente na tree) ou chegue ao no
-     * folha para que a insercao do novo no seja feita */
+
+    /* Otherwise, if the current page is not a leaf node, call function recursively until
+     * - it finds a key with the value to be inserted (meaning key already exists on tree) or
+     * - it reaches a leaf node so the insertion of the new node can be made.
+    */
     seek_node(stream, curr_rrn, is_fixed);
     tree_node curr_page = fread_node(stream, is_fixed);
 
-    // Pesquisar a pagina, procurando a chave de busca
+    // Search through page, looking for searched key ---
+        // Search all key pairs within the node/page, based on the num_keys field also inside the node
 
-    // Search all key pairs within the node/page, based on the num_keys field also inside the node
     int position = 0;
     for (; position < curr_page.num_keys; position++) {
-        // Chave encontrada - nao inserir duplicata
+        // 1. Key was found - don't insert same key value
         if (to_insert.id == curr_page.keys[position].id) {
             return INSERT_ERROR;
         }
 
-        // Onde a chave deveria estar
+        // 2. Position where key should be was found
         if (to_insert.id < curr_page.keys[position].id) {
             break;
         }
     }
 
-    // A chave de busca nao foi encontrada, portanto procure a chave de busca no filho.
+    // Searched key was not found, so look for it inside children nodes/pages using recursion ---
 
-    // Chave e RRN promovidos do nivel inferior para serem inseridos na pagina de disco atual
+    // Key and RRN promoted from lower level; should be inserted on current disk pages/nodes
     key key_promoted_to_curr = {};
-    int rrn_promoted_to_curr = -1;
+    int rrn_promoted_to_curr = EMPTY;
     int return_value = insert_into_tree(stream, header, is_fixed, curr_page.children[position], to_insert,
                                         &key_promoted_to_curr, &rrn_promoted_to_curr);
 
@@ -512,42 +523,42 @@ int insert_into_tree(FILE *stream, tree_header *header, bool is_fixed, int curr_
         return return_value;
     }
 
-    // Insercao da chave sem particionamento
+    // Inserting key without partitioning ---
     if (curr_page.num_keys < MAX_KEY_AMT) {
-        // Shift das chaves e dos descendentes para a direita, abrindo espaco corretamente
-        // para a insercao da nova chave
+        // Keys' and descendants' right shifting, making room correctly for new key's insertion 
         for (int i = curr_page.num_keys - 1; i >= position; i--) {
             curr_page.keys[i + 1] = curr_page.keys[i];
             curr_page.children[i + 2] = curr_page.children[i + 1];
         }
 
-        // Atualiza o numero de chaves (com a insercao, eh adicionada uma chave a mais na pagina)
+        // Updating key amount inside node/disk page (with the insertion made, the page
+        // carries one more key)
         (curr_page.num_keys)++;
 
-        // Atualizar chave a ser inserida e seu filho direito
+        // Updating curr page, correctly positioning key to be inserted and its right child
         curr_page.keys[position] = key_promoted_to_curr;
         curr_page.children[position + 1] = rrn_promoted_to_curr;
 
-        // Escrever a pagina/no
+        // Writing just modified page/tree node, saving b-tree's changes 
         seek_node(stream, curr_rrn, is_fixed);
         write_node(stream, is_fixed, curr_page);
 
         return NO_PROMOTION;
     }
 
-    // Insercao da chave com particionamento/split
+    // Inserting key with partitioning/split ---
     tree_node new_page = {};
     split(key_promoted_to_curr, rrn_promoted_to_curr, &curr_page, promoted, &new_page);
 
-    // Atualizar total de nos inseridos na arvore (aumentou pelo split)
+    // Updating total of b-tree's inserted nodes (it has increased by splitting)
     (header->total_nodes)++;
 
-    // O RRN promovido eh o de newpage (new_page eh a descendente direita da chave promovida)
+    // Promoted RRN is newpage's (indicates that newpage is the right descendant of promoted key)
     int new_page_rrn = (header->next_rrn)++;
     *prom_right_child = new_page_rrn;
 
-    // Escrever paginas/nos
-    // (curr_page e new_page)
+    // Writing just modified pages/tree nodes, saving b-tree's changes 
+    // at curr_page and new_page (split results)
     seek_node(stream, curr_rrn, is_fixed);
     write_node(stream, is_fixed, curr_page);
 
