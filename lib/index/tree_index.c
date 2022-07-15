@@ -327,37 +327,38 @@ void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fix
 }
 
 /*
- * Tratamento do overflow causado pela insercao de uma chave.
- * - Cria uma nova pagina;
- * - Distribui as chaves o mais uniformemente possivel entre a pag. ja existente
- * e aquela a ser criada;
- * - Determina quais chaves e RRNs serao promovidos.
+ * Treatment of overflow caused by the insertion of a key inside b-tree. The function:
+ * - Creates a new disk page/node;
+ * - Distributes keys (between already existing page and the one to be created) in the most
+ *  possibly uniform way;
+ * - Determinates which keys and RRNs will be promoted.
  * 
- * Parametros:
- * - key to_insert -> nova chave a ser inserida
- * - int inserted_r_child -> referencia para filho a direita da nova chave a ser inserida
- * - tree_node *curr_page -> referencia da pagina de disco corrente
- * - key *promoted -> referencia da chave promovida
- * - tree_node *new_page -> referencia para nova pagina de disco.
+ * Args:
+ * - key to_insert -> new key to be inserted inside tree
+ * - int inserted_r_child -> reference of to be inserted key's right child
+ * - tree_node *curr_page -> reference of current disk page or b-tree's node
+ * - key *promoted -> reference of promoted key 
+ * - tree_node *new_page -> reference of new disk page or b-tree's node.
  * 
  */
 void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promoted, tree_node *new_page) {
-    // Trazer todas as chaves e 'ponteiros'/descendentes da pagina de disco atual para
-    // um espaco capaz de segurar uma chave e um filho extra
+    // Brings all keys and current disk page's `pointers`/descendants/children to a working
+    // space capable of holding an extra key and an extra child 
     key all_keys[4];
 
     for (int i = 0; i < 4; i++) {
-        all_keys[i].id = -1;
-        all_keys[i].byteoffset = -1;
-        all_keys[i].rrn = -1;
+        all_keys[i].id = EMPTY;
+        all_keys[i].byteoffset = EMPTY;
+        all_keys[i].rrn = EMPTY;
     }
 
     int all_children[5];
 
-    // Essa informacao nao muda
+    // This information does not change (insertion is only made by right side and this is
+    // the child at max left)
     all_children[0] = curr_page->children[0];
 
-    // Copiar chaves da pagina atual
+    // Copy curr page's keys
     int insert_position = -1;
     bool found_position = false;
     for (int i = 0; i < 3; i++) {
@@ -372,13 +373,13 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
         }
     }
 
-    // Se nao achou a posicao ainda, significa que a chave a ser inserida tem o maior id
-    // de todos e deve ser inserida no fim
+    // If hasn't found position yet, it means key to be inserted has the biggest id of all
+    // and should be inserted in the end of working space
     if (!found_position) {
         insert_position = 3;
     }
 
-    // Shiftar para inserir a nova chave na pos. correta
+    // Shifting all info to insert new key at correct position
     for (int i = 2; i >= insert_position; i--) {
         all_keys[i + 1].id = all_keys[i].id;
         all_keys[i + 1].byteoffset = all_keys[i].byteoffset;
@@ -387,64 +388,65 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
         all_children[i + 2] = all_children[i + 1];
     }
 
-
-    // Inserindo nova chave
+    // Now inserting new key
     all_keys[insert_position] = to_insert;
     all_children[insert_position + 1] = inserted_r_child;
 
-    // Promover chave que esta no meio
+    // The working space is ready and ordenated, turning possible the promotion of
+    // middle key (most uniform promotion as possible)
     *promoted = all_keys[2];
 
-    // Com o split, o tipo do no varia
-    // Testar se curr_page eh no-raiz
+    // After the split, node type varies. It's necessary to test if curr_page is
+    // a root node.
     if (curr_page->type == ROOT_NODE) {
-        // Se a arvore so contiver curr_page (so tem raiz, sem quaisquer filhos)
+        // If curr_page is a root node at the moment and b-tree contains only
+        // this node (b-tree only has root, without any children), curr_page
+        // now is a leaf node after split
         if (curr_page->children[0] == NODE_NOT_FOUND) {
-            // Se torna um no folha com o split
             curr_page->type = LEAF_NODE;
         }
 
-        // Se tem curr_page como raiz, com filhos,
+        // Otherwise, if b-tree contains curr_page and other nodes (root has children),
+        // curr_page turns into an intermediate node after the split.
         else {
-            // Se torna no intermediario com o split
             curr_page->type = INTERMEDIATE_NODE;
         }
     }
-    // A nova pagina eh inserida na mesma altura da curr_page, entao seus
-    // tipos sao iguais
+
+    // New page is inserted at same level of curr_page, so its node types are same ---
     new_page->type = curr_page->type;
 
-    // Copiar chaves e 'ponteiros' para filhos que antecedem a chave promovida
-    // -> da pagina auxiliar para a pagina atual do indice
+    // Copy keys and children `pointers` that precede promoted key
+    // --> from auxiliar page to curr index page
     curr_page->keys[0] = all_keys[0];
     curr_page->children[1] = all_children[1];
 
     curr_page->keys[1] = all_keys[1];
     curr_page->children[2] = all_children[2];
 
-    curr_page->keys[2].id = -1;
-    curr_page->keys[2].rrn = -1;
-    curr_page->keys[2].byteoffset = -1;
+    curr_page->keys[2].id = EMPTY;
+    curr_page->keys[2].rrn = EMPTY;
+    curr_page->keys[2].byteoffset = EMPTY;
 
-    curr_page->children[3] = -1;
+    curr_page->children[3] = EMPTY;
     curr_page->num_keys = 2;
 
-    // Copiar chaves e 'ponteiros' para filhos que sucedem a chave promovida
-    // -> da pagina auxiliar para a nova pagina do indice
+    // Copy keys and children `pointers` that succede promoted key
+    // --> from auxiliar page to new index page
     new_page->children[0] = all_children[3];
 
     new_page->keys[0] = all_keys[3];
     new_page->children[1] = all_children[4];
 
-    new_page->keys[1].id = -1;
-    new_page->keys[1].rrn = -1;
-    new_page->keys[1].byteoffset = -1;
-    new_page->children[2] = -1;
+    new_page->keys[1].id = EMPTY;
+    new_page->keys[1].rrn = EMPTY;
+    new_page->keys[1].byteoffset = EMPTY;
+    new_page->children[2] = EMPTY;
 
-    new_page->keys[2].id = -1;
-    new_page->keys[2].rrn = -1;
-    new_page->keys[2].byteoffset = -1;
-    new_page->children[3] = -1;
+    new_page->keys[2].id = EMPTY;
+    new_page->keys[2].rrn = EMPTY;
+    new_page->keys[2].byteoffset = EMPTY;
+    new_page->children[3] = EMPTY;
     new_page->num_keys = 1;
 }
 
