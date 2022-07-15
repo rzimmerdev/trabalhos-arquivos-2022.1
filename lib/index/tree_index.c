@@ -5,31 +5,62 @@
 #include "tree_index.h"
 
 
+/*
+ * Reads the B-Tree header from the given index file stream.
+ *
+ * Args:
+ *      FILE *stream: B-Tree initialized file with header field to read
+ *      bool is_fixed: Encoding of the given index file stream
+ *
+ * Returns:
+ *      Header of type tree_header, with all its parameters filled
+ */
 tree_header fread_tree_header(FILE *stream, bool is_fixed) {
 
+    // Define header variable and seek to header position (file start)
     tree_header header = {};
     fseek(stream, 0, SEEK_SET);
 
+    // Reads individual values in respective order
     fread(&header.status, sizeof(char), 1, stream);
     fread(&header.root_rrn, sizeof(int), 1, stream);
     fread(&header.next_rrn, sizeof(int), 1, stream);
     fread(&header.total_nodes, sizeof(int), 1, stream);
 
+    // Seeks after the garbage characters at end of header, going to end of header
     fseek(stream, is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE, SEEK_SET);
 
     return header;
 }
 
 
+/*
+ * Writes a variable of type tree_header to given index file stream.
+ *
+ * Example:
+ *      >>> tree_header header = {.status = OK_STATUS, .root_rrn = EMPTY, .next_rrn = 0, .total_nodes = 0};
+ *      >>> bool repeat = false;
+ *      >>> write_tree_header(stream, header, is_repeat, is_fixed);
+ *
+ * Args:
+ *      FILE *stream: B-Tree initialized file, at any given stream position
+ *      tree_header header: TreeHeader with filled values to insert at start of index file
+ *      bool is_repeat: Whether to rewrite garbage characters at end of header or just skip them
+ *      bool is_fixed: Encoding of the given index file stream
+ */
 void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is_fixed) {
 
+    // Seek to file start to begin writing parameters
     fseek(stream, 0, SEEK_SET);
 
+    // Writes individual values in respective order
     fwrite(&header.status, sizeof(char), 1, stream);
     fwrite(&header.root_rrn, sizeof(int), 1, stream);
     fwrite(&header.next_rrn, sizeof(int), 1, stream);
     fwrite(&header.total_nodes, sizeof(int), 1, stream);
 
+    // If header has already been written before, and there this is a repeated write operation,
+    // simply skip garbage characters at end of pre-existing header
     if (is_repeat) {
         fseek(stream, is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE, SEEK_SET);
         return;
@@ -37,11 +68,24 @@ void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is
 
     char garbage = GARBAGE;
 
+    // If header has not been written before inside the index file, write garbage characters
+    // to fill remaining header size
     for (int i = 0; i < (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE) - 1; i++)
         fwrite(&garbage, sizeof(char), 1, stream);
 }
 
 
+/*
+ * Write a filled tree_node to the given B-Tree index file stream, at actual position within the stream.
+ *
+ * Example:
+ *      >>> tree_node node = create_empty_tree_node();
+ *      >>> write_node(stream, is_fixed, node);
+ *
+ * Args:
+ *      FILE *stream: B-Tree initialized file, at desired position for new node to be written at
+ *      bool is_fixed: Encoding of the given index file stream
+ */
 void write_node(FILE *stream, bool is_fixed, tree_node node) {
     // Write common fields, those being the node type, as well as how many keys the node has.
     fwrite(&node.type, sizeof(char), 1, stream);
@@ -52,12 +96,16 @@ void write_node(FILE *stream, bool is_fixed, tree_node node) {
     // Contains the identifier, as well as the identifier locator within
     // the original data file.
     if (is_fixed) {
+
+        // For each key, write both its id and respective rrn relative to the table file
         for (; i < 3; i++) {
             fwrite(&node.keys[i].id, sizeof(int), 1, stream);
             fwrite(&node.keys[i].rrn, sizeof(int), 1, stream);
 
         }
     } else {
+
+        // For each key, write both its id and respective byteoffset relative to the table file
         for (; i < 3; i++) {
             fwrite(&node.keys[i].id, sizeof(int), 1, stream);
             fwrite(&node.keys[i].byteoffset, sizeof(long int), 1, stream);
@@ -73,10 +121,15 @@ void write_node(FILE *stream, bool is_fixed, tree_node node) {
 
 
 /*
- * Reads a node from a given B-Tree file stream.
- * Must be previously placed at seek position beforehand.
- * Returns struct with tree_node type, either with rrn keys or byteoffset keys filled,
- * depending on the chosen encoding.
+ * Reads a node from a given B-Tree file stream. Must be previously placed at seek position beforehand.
+ * Returns struct with tree_node type, either with rrn keys or byteoffset keys filled, epending on the chosen encoding.
+ *
+ * Args:
+ *      FILE *stream: B-Tree initialized file, at desired position for node to be read from
+ *      bool is_fixed: Encoding of the given index file stream
+ *
+ * Returns:
+ *      Variable of type tree_node read from index file at current stream position
  */
 tree_node fread_node(FILE *stream, bool is_fixed) {
 
