@@ -514,30 +514,38 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
 }
 
 int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
+    /*
+     * Inserts multiple records into data file, as well as into an index file (b-tree).
+     * New records with variable size are inserted according to Worst Fit strategy into
+     * previously removed record spaces, or into the end of the file if no previously removed space is available.
+     */
+    
     // Testing the existance of both files, and expecting valid status for both
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *data_stream = fopen(data_filename, "rb+");
-
     update_status(data_stream, BAD_STATUS);
 
+    // Loading data file header to RAM
     header file_header = fread_header(data_stream, is_fixed);
 
-    // Loading index header to RAM 
     FILE *index_stream = fopen(index_filename, "rb+");
     update_status(index_stream, BAD_STATUS);
 
+    // Loading index header to RAM (it contains frequently used information, i.e, the root node, where
+    // the search begins).
     tree_header index_header = fread_tree_header(index_stream, is_fixed);
 
     // Reading functionality's 11 entry format
     for (int i = 0; i < total_insertions; i++) {
         data to_insert = read_record_entry(is_fixed);
 
-        // Inserir registro no arquivo de dados, retornando RRN ou byteoffset de insercao para
-        // utilizar no indice
+        // Inserting record into data file, returning RRN or byteoffset (depending on filetype - `is_fixed`)
+        // in order to indexate it in the tree.
         long int new_record_position = data_insert_into(data_stream, to_insert, is_fixed, &file_header);
 
+        // Getting indexation info of record recently inserted on data file
         key to_indexate = {};
         to_indexate.id = to_insert.id;
 
@@ -549,13 +557,14 @@ int insert_into_btree_command(char *data_filename, char *index_filename, int tot
             to_indexate.byteoffset = new_record_position;
         }
 
-        // Realizar a insercao no indice corretamente ao aplicar o procedimento driver
+        // Insert correctly the new record's info on index by applicating driver procedure
+        // (a routine that deals with the insertion properly by considerating the tree's root state).
         driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
 
         free_record(to_insert);
     }
 
-    // Writing header on the file to disk
+    // Writing header on the data file to disk
     write_header(data_stream, file_header, is_fixed, 0);
 
     // To finish writing on the data file, set status as OK_STATUS
@@ -588,7 +597,7 @@ int create_btree_index_command(char *data_filename, char *index_filename, bool i
     // Open data file for reading
     FILE *original_stream = fopen(data_filename, "rb");
 
-    // Open index file for writting, and update status field to
+    // Open index file for writing, and update status field to
     // account for any possible file corruptions
     FILE *index_stream = fopen(index_filename, "wb+");
     update_status(index_stream, BAD_STATUS);
