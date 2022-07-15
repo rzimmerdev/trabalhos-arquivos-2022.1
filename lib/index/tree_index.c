@@ -132,7 +132,7 @@ tree_node fread_node(FILE *stream, bool is_fixed) {
  *      or false for variable sized data
  *
  * Returns:
- *      If search is successful, returns the RRN of the found record within the table file, or
+ *      If search is successful, returns the byteoffset of the found record within the table file, or
  *      NOT_FOUND if no index was found with given identifier
  */
 long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed) {
