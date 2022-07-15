@@ -131,6 +131,24 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
 */
 int update_variable_filtered(FILE *stream, index_array *index, data filter, data params, header *template);
 
+/*
+* Inserts a new record field into the given table. It does not deal with the index's info.
+* Uses the header top element to find next available space, or insert into end
+* of file if no empty space within the removed fields is available.
+* Uses a similar organization to what was used in the remove_where functionality, which means
+* inserts according to Worse Fit in variable sized tables and First fit in
+* fixed sized tables.
+*
+* Args:
+*     FILE *stream: File stream to iterate through and write data in (data file)
+*     data new_record: The record whose new data received by input stream will be added to data file
+*     bool is_fixed: File encoding to use when reading the input stream (can be either FIXED (1) or VARIABLE (0))
+*     header *header_template: The header info that is contained on beginning of data file (to update data file's header).
+*
+* Returns:
+*     long int: Returns new_record_pos. This variable contains either the RRN or the byteoffset of
+*     the inserted record, so this information can be used to manipulate the index file anytime after. 
+*/
 long int data_insert_into(FILE *stream, data new_record, bool is_fixed, header *template);
 
 #endif //T1_TABLE_H
