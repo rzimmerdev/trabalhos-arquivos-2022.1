@@ -4,7 +4,7 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
-// Codes for function return values
+// Codes for function return values (indicates status)
 #define SUCCESS_CODE 1
 #define ERROR_CODE -1
 #define NOT_FOUND 0
@@ -111,8 +111,19 @@ int update_records_command(char *data_filename, char *index_filename, int total_
 
 int select_id_command(char *data_filename, char *index_filename, int id, bool is_fixed);
 
+/*
+* Inserts multiple records into data file, as well as into an index file (b-tree).
+* New records with variable size are inserted according to Worst Fit strategy into
+* previously removed record spaces, or into the end of the file if no previously removed space is available.
+*/
 int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed);
 
+/*
+* Creates an index table with index_filename, based on records read
+* from input data file, with specified file encoding
+* Indexes are created as pairs of id's and rrn's or byteoffset's, depending
+* on the input record type.
+*/
 int create_btree_index_command(char *data_filename, char *index_filename, bool is_fixed);
 
 #endif //COMMANDS_H
