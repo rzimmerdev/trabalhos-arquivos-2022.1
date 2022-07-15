@@ -12,11 +12,12 @@
 #include "commands.h"
 #include "csv_utils.h"
 
+
+/*
+ * Generic function to verify stream of record data and record indices.
+ * Uses the verify_index boolean value to decide whether to verify already existing index file or not.
+ */
 int verify_stream(char *data_filename, char *index_filename, bool verify_index) {
-    /*
-     * Generic function to verify stream of record data and record indices.
-     * Uses the verify_index boolean value to decide whether to verify already existing index file or not.
-     */
 
     // ====================================================
     // Verify if data stream exists and its status is valid
@@ -59,17 +60,18 @@ int verify_stream(char *data_filename, char *index_filename, bool verify_index) 
 }
 
 
+/*
+ * Creates an abstract table with given input and saves result to a specific file.
+ *
+ * Args:
+ *     char *csv_filename: CSV file to read input data from
+ *     char *out_filename: Filename to which to write binary data to
+ *     bool is_fixed: Selected specific encoding for resulting file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *     int: Returns SUCCESS_CODE if read and write operations were successful, and ERROR_CODE otherwise.
+ */
 int create_table_command(char *csv_filename, char *out_filename, bool is_fixed) {
-    /* Creates an abstract table with given input and saves result to a specific file.
-     *
-     * Args:
-     *     char *csv_filename: CSV file to read input data from
-     *     char *out_filename: Filename to which to write binary data to
-     *     bool is_fixed: Selected specific encoding for resulting file, can be either FIXED (1) or VARIABLE (0)
-     *
-     * Returns:
-     *     int: Returns SUCCESS_CODE if read and write operations were successful, and ERROR_CODE otherwise.
-     */
 
     FILE *csvstream = fopen(csv_filename, "r");
 
@@ -89,23 +91,22 @@ int create_table_command(char *csv_filename, char *out_filename, bool is_fixed) 
 }
 
 
+/* Prints to console records read from given file, according to expected file encoding type.
+ *
+ * Args:
+ *     char *bin_filename: Binary file which contains table to select from
+ *     bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *     int: Returns SUCCESS_CODE if table could be accessed, and ERROR_CODE otherwise.
+ */
 int select_command(char *bin_filename, bool is_fixed) {
-    /* Prints to console records read from given file, according to expected file encoding type.
-     *
-     * Args:
-     *     char *bin_filename: Binary file which contains table to select from
-     *     bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
-     *
-     * Returns:
-     *     int: Returns SUCCESS_CODE if table could be accessed, and ERROR_CODE otherwise.
-     */
+
     if (verify_stream(bin_filename, NULL, false) == ERROR_CODE)
         return ERROR_CODE;
 
     FILE *stream = fopen(bin_filename, "rb");
-
     int status = select_table(stream, is_fixed);
-
     fclose(stream);
 
     return status;
@@ -121,22 +122,22 @@ static table_dict column_lookup[] = {
 };
 
 
+/*
+ * Function to encode column string value to specific numeric value, as to perform conditional operations.
+ *
+ * Args:
+ *     char *key: Column name to be used as key from _table_dict_ column_lookup dictionary.
+ *
+ * Returns:
+ *     int: Numeric value corresponding to encoded column name, or -1 if encoding doesn't exist for given value.
+ */
 int lookup(char *key) {
-    /* Function to encode column string value to specific numeric value, as to perform conditional operations.
-     *
-     * Args:
-     *     char *key: Column name to be used as key from _table_dict_ column_lookup dictionary.
-     *
-     * Returns:
-     *     int: Numeric value corresponding to encoded column name, or -1 if encoding doesn't exist for given value.
-     */
     for (int i = 0; i < 7; i++) {
         table_dict *mapped = &column_lookup[i];
 
         if (strcmp(mapped->key, key) == 0)
             return mapped->val;
     }
-
     return -1;
 }
 
@@ -200,29 +201,31 @@ data scanf_filter(int total_parameters) {
 }
 
 
+/*
+ * Prints to console all records read from given file that match all parameters read from console.
+ *
+ * Example:
+ *      // int total_parameters = 1;
+ *      >>> ano 2012
+ *      >>> marca "FIAT"
+ *
+ *      MARCA DO VEICULO: FIAT
+ *      MODELO DO VEICULO: UNO MILLE ECONOMY
+ *      ANO DE FABRICACAO: 2012
+ *      NOME DA CIDADE: BELO HORIZONTE
+ *      QUANTIDADE DE VEICULOS: 1411
+ *
+ * Args:
+ *     char *bin_filename: Binary file which contains table to select specific records from
+ *     int total_parameters: Total parameters to be read from console and be used as filters
+ *     bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
+ *
+ *  Returns:
+ *      int: Returns SUCCESS_CODE if any table record could be read,
+ *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise.
+ */
 int select_where_command(char *bin_filename, int total_parameters, bool is_fixed) {
-    /* Prints to console all records read from given file that match all parameters read from console.
-     *
-     * Example:
-     *      // int total_parameters = 1;
-     *      >>> ano 2012
-     *      >>> marca "FIAT"
-     *
-     *      MARCA DO VEICULO: FIAT
-     *      MODELO DO VEICULO: UNO MILLE ECONOMY
-     *      ANO DE FABRICACAO: 2012
-     *      NOME DA CIDADE: BELO HORIZONTE
-     *      QUANTIDADE DE VEICULOS: 1411
-     *
-     * Args:
-     *     char *bin_filename: Binary file which contains table to select specific records from
-     *     int total_parameters: Total parameters to be read from console and be used as filters
-     *     bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
-     *
-     *  Returns:
-     *      int: Returns SUCCESS_CODE if any table record could be read,
-     *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise.
-     */
+
     if (verify_stream(bin_filename, NULL, false) == ERROR_CODE)
         return ERROR_CODE;
 
@@ -242,17 +245,19 @@ int select_where_command(char *bin_filename, int total_parameters, bool is_fixed
 }
 
 
+/*
+ * Prints to console a single record inside selected fixed record encoded file with given relative record number.
+ *
+ * Args:
+ *     char *bin_filename: Binary file which contains table to select specific record from
+ *     int rrn: Relative number refering to position of record in file encoded with fixed records
+ *
+ * Returns:
+ *      int: Returns SUCCESS_CODE if table record could be read,
+ *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise
+ */
 int select_rrn_command(char *bin_filename, int rrn) {
-    /* Prints to console a single record inside selected fixed record encoded file with given relative record number.
-     *
-     * Args:
-     *     char *bin_filename: Binary file which contains table to select specific record from
-     *     int rrn: Relative number refering to position of record in file encoded with fixed records
-     *
-     * Returns:
-     *      int: Returns SUCCESS_CODE if table record could be read,
-     *           NOT_FOUND if it was read as removed or is non-existent, and ERROR_CODE otherwise
-     */
+
     if (verify_stream(bin_filename, NULL, false) == ERROR_CODE)
         return ERROR_CODE;
 
@@ -282,13 +287,13 @@ int select_rrn_command(char *bin_filename, int rrn) {
 }
 
 
+/*
+ * Creates an index table with index_filename, based on records read
+ * from input data file, with specified file encoding
+ * Indexes are created as pairs of id's and rrn's or byteoffset's, depending
+ * on the input record type.
+ */
 int create_index_command(char *data_filename, char *index_filename, bool is_fixed) {
-    /*
-     * Creates an index table with index_filename, based on records read
-     * from input data file, with specified file encoding
-     * Indexes are created as pairs of id's and rrn's or byteoffset's, depending
-     * on the input record type.
-     */
 
     // Verify integrity and existance of only the data files,
     // by marking the verify_index field as false
@@ -314,13 +319,14 @@ int create_index_command(char *data_filename, char *index_filename, bool is_fixe
     return SUCCESS_CODE;
 }
 
+
+/*
+ * Deletes multiple records from data file, using a sequence of filters
+ * to select which records to be deleted. Index file is used to
+ * perform search by index, increasing speed of deletion as index
+ * values are stored in primary memory (RAM)
+ */
 int delete_records_command(char *data_filename, char *index_filename, int total_filters, bool is_fixed) {
-    /*
-     * Deletes multiple records from data file, using a sequence of filters
-     * to select which records to be deleted. Index file is used to
-     * perform search by index, increasing speed of deletion as index
-     * values are stored in primary memory (RAM)
-     */
 
     // Verify integrity and existance of both data and index files
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
@@ -368,12 +374,12 @@ int delete_records_command(char *data_filename, char *index_filename, int total_
 }
 
 
+/*
+ * Inserts multiple records into data file, as well as into an index file
+ * New records with variable size are inserted according to Worst Fit strategy into
+ * previously removed record spaces, or into the end of the file if no previously removed space is available.
+ */
 int insert_records_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
-    /*
-     * Inserts multiple records into data file, as well as into an index file
-     * New records with variable size are inserted according to Worst Fit strategy into
-     * previously removed record spaces, or into the end of the file if no previously removed space is available.
-     */
 
     // Testing the existance of both files, and expecting valid status for both
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
@@ -411,13 +417,14 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
     return SUCCESS_CODE;
 }
 
+
+/*
+ * Updates a sequence of records from given console input.
+ * Updating method depends on the selected data encoding.
+ * If the new record does not fit on the previously existing space (specifically for variabel sized records),
+ * record is deleted and reinserted with updated parameters to next available space according to Worst Fit method.
+ */
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed) {
-    /*
-     * Updates a sequence of records from given console input.
-     * Updating method depends on the selected data encoding.
-     * If the new record does not fit on the previously existing space (specifically for variabel sized records),
-     * record is deleted and reinserted with updated parameters to next available space according to Worst Fit method.
-     */
 
     // Testing file pointers and their validity. Then, testing the consistency of the file to which they point
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
@@ -483,27 +490,55 @@ int update_records_command(char *data_filename, char *index_filename, int total_
 }
 
 
+/*
+ * Prints to console a given record from the table file, using an id as filter parameter.
+ * Accesses the id using the B-Tree index file, and read record using the saved respective RRN or Byteoffset.
+ *
+ * Example:
+ *      >>> int id = 7;
+ *      >>> select_id_command(data_filename, index_filename, id, is_fixed);
+ *      MARCA DO VEICULO: HONDA
+ *      MODELO DO VEICULO: NXR160 BROS ESDD
+ *      ANO DE FABRICACAO: 2020
+ *      NOME DA CIDADE: MESQUITA
+ *      QUANTIDADE DE VEICULOS: 21
+ *
+ * Args:
+ *      FILE *data_filename: Table file containing records information, with fixed or variable sized records
+ *      FILE *index_filename: Index file containing B-Tree nodes with a key type identifier
+ *      int id: Identifier id to use when searching through B-Tree
+ *      bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *      SUCCESS_CODE if table and index could be opened, and ERROR_CODE otherwise
+ */
 int select_id_command(char *data_filename, char *index_filename, int id, bool is_fixed) {
+
+    // Verify if both the table and the index files exists inside the working directory
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
-    FILE *btree_stream = fopen(index_filename, "r");
+    // Open the index file to search for the byteoffset of the matching record
+    FILE *index_stream = fopen(index_filename, "r");
+    tree_header index_header = fread_tree_header(index_stream, is_fixed);
 
-    int rrn_found; int pos_found = 0;
-    fseek(btree_stream, sizeof(char), SEEK_SET);
-    fread(&rrn_found, sizeof(int), 1, btree_stream);
-
+    // Create a template identifier containing the lookup id
     key identifier = {.id = id};
-    long int status = tree_search_identifier(btree_stream, identifier, &rrn_found, &pos_found, is_fixed);
-    fclose(btree_stream);
 
-    if (status == NOT_FOUND)
+    // Call the tree_search_identifier function using the defined identifier
+    int rrn_found = index_header.root_rrn, pos_found = 0;
+    long int byteoffset = tree_search_identifier(index_stream, identifier, &rrn_found, &pos_found, is_fixed);
+    fclose(index_stream);
+
+    // If the identifier was not found within the index file, return a warning message
+    if (byteoffset == NOT_FOUND)
         return NOT_FOUND;
 
+    // Locates the record using its byteoffset within the table file
     FILE *data_stream = fopen(data_filename, "r");
-    long int byteoffset = status;
     fseek(data_stream, byteoffset, SEEK_SET);
 
+    // After locating record, print values to console and exit function call
     data record = fread_record(data_stream, is_fixed);
     printf_record(record);
     free_record(record);
@@ -513,28 +548,42 @@ int select_id_command(char *data_filename, char *index_filename, int id, bool is
     return SUCCESS_CODE;
 }
 
+
+/*
+ * Inserts multiple records into data file, as well as into an index file (b-tree).
+ * New records with variable size are inserted according to Worst Fit strategy into
+ * previously removed record spaces, or into the end of the file if no previously removed space is available.
+ *
+ * Example:
+ *      >>> int total_insertions = 2;
+ *      >>> insert_into_btree_command(ata_filename, index_filename, total_insertions, is_fixed);
+ *      181 2015 11 "ES" "VILA VELHA" "FORD" "KA SEL 1.5 HA"
+ *      1001 2020 21 "PA" "ANANINDEUA" "RENAULT" "DUSTER ZEN 16"
+ *
+ * Args:
+ *      FILE *data_filename: Table file containing records information, with fixed or variable sized records
+ *      FILE *index_filename: Index file containing B-Tree nodes with a key type identifier
+ *      int total_insertions: Amount of records to read from console and to insert into the table and index files
+ *      bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *      SUCCESS_CODE (1) if table and index could be opened, and ERROR_CODE (-1) otherwise
+ */
 int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed) {
-    /*
-     * Inserts multiple records into data file, as well as into an index file (b-tree).
-     * New records with variable size are inserted according to Worst Fit strategy into
-     * previously removed record spaces, or into the end of the file if no previously removed space is available.
-     */
     
     // Testing the existance of both files, and expecting valid status for both
     if (verify_stream(data_filename, index_filename, true) == ERROR_CODE)
         return ERROR_CODE;
 
+    // Open table and index stream and update status as currently being written to
     FILE *data_stream = fopen(data_filename, "rb+");
-    update_status(data_stream, BAD_STATUS);
-
-    // Loading data file header to RAM
-    header file_header = fread_header(data_stream, is_fixed);
-
     FILE *index_stream = fopen(index_filename, "rb+");
+
+    update_status(data_stream, BAD_STATUS);
     update_status(index_stream, BAD_STATUS);
 
-    // Loading index header to RAM (it contains frequently used information, i.e, the root node, where
-    // the search begins).
+    // Load both table's and indexe's headers to memory
+    header file_header = fread_header(data_stream, is_fixed);
     tree_header index_header = fread_tree_header(index_stream, is_fixed);
 
     // Reading functionality's 11 entry format
@@ -581,13 +630,20 @@ int insert_into_btree_command(char *data_filename, char *index_filename, int tot
     return SUCCESS_CODE;
 }
 
+
+/*
+ * Creates an index table with index_filename, based on records read from input data file, with specified file encoding.
+ * Indexes are created as pairs of id's and rrn's or byteoffset's, depending on the input record type.
+ *
+ * Args:
+ *      FILE *data_filename: Table file containing records information, with fixed or variable sized records
+ *      FILE *index_filename: Name of the index file to be created
+ *      bool is_fixed: Expected encoding for selected and output file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *      SUCCESS_CODE (1) if table file could be opened, and ERROR_CODE (-1) otherwise
+ */
 int create_btree_index_command(char *data_filename, char *index_filename, bool is_fixed) {
-    /*
-     * Creates an index table with index_filename, based on records read
-     * from input data file, with specified file encoding
-     * Indexes are created as pairs of id's and rrn's or byteoffset's, depending
-     * on the input record type.
-     */
 
     // Verify integrity and existance of only the data files,
     // by marking the verify_index field as false

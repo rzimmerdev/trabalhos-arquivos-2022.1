@@ -4,7 +4,7 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
-// Codes for function return values (indicates status)
+// Codes for function return values
 #define SUCCESS_CODE 1
 #define ERROR_CODE -1
 #define NOT_FOUND 0
@@ -109,21 +109,67 @@ int insert_records_command(char *data_filename, char *index_filename, int total_
 int update_records_command(char *data_filename, char *index_filename, int total_updates, bool is_fixed);
 
 
+/*
+ * Prints to console a given record from the table file, using an id as filter parameter.
+ * Accesses the id using the B-Tree index file, and read record using the saved respective RRN or Byteoffset.
+ *
+ * Example:
+ *      >>> int id = 7;
+ *      >>> select_id_command(data_filename, index_filename, id, is_fixed);
+ *      MARCA DO VEICULO: HONDA
+ *      MODELO DO VEICULO: NXR160 BROS ESDD
+ *      ANO DE FABRICACAO: 2020
+ *      NOME DA CIDADE: MESQUITA
+ *      QUANTIDADE DE VEICULOS: 21
+ *
+ * Args:
+ *      FILE *data_filename: Table file containing records information, with fixed or variable sized records
+ *      FILE *index_filename: Index file containing B-Tree nodes with a key type identifier
+ *      int id: Identifier id to use when searching through B-Tree
+ *      bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *      SUCCESS_CODE if table and index could be opened, and ERROR_CODE otherwise
+ */
 int select_id_command(char *data_filename, char *index_filename, int id, bool is_fixed);
 
-/*
-* Inserts multiple records into data file, as well as into an index file (b-tree).
-* New records with variable size are inserted according to Worst Fit strategy into
-* previously removed record spaces, or into the end of the file if no previously removed space is available.
-*/
-int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed);
 
 /*
-* Creates an index table with index_filename, based on records read
-* from input data file, with specified file encoding
-* Indexes are created as pairs of id's and rrn's or byteoffset's, depending
-* on the input record type.
-*/
+ * Seeks stream to relative record offset within the given stream file.
+ *
+ * Example:
+ *      >>> seek_node(stream, 2, false);
+ *      Seeks to byteoffset 90 within the stream file. (45b node size for fixed index, and 57b for variable)
+ *
+ * Args:
+ *      FILE *stream: Input stream containing B-Tree nodes
+ *      int rrn: Relative register number, into which position to seek to
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data.
+ */
+int insert_into_btree_command(char *data_filename, char *index_filename, int total_insertions, bool is_fixed);
+
+
+/*
+ * Inserts multiple records into data file, as well as into an index file (b-tree).
+ * New records with variable size are inserted according to Worst Fit strategy into
+ * previously removed record spaces, or into the end of the file if no previously removed space is available.
+ *
+ * Example:
+ *      >>> int total_insertions = 2;
+ *      >>> insert_into_btree_command(ata_filename, index_filename, total_insertions, is_fixed);
+ *      181 2015 11 "ES" "VILA VELHA" "FORD" "KA SEL 1.5 HA"
+ *      1001 2020 21 "PA" "ANANINDEUA" "RENAULT" "DUSTER ZEN 16"
+ *
+ * Args:
+ *      FILE *data_filename: Table file containing records information, with fixed or variable sized records
+ *      FILE *index_filename: Index file containing B-Tree nodes with a key type identifier
+ *      int total_insertions: Amount of records to read from console and to insert into the table and index files
+ *      bool is_fixed: Expected encoding for selected file, can be either FIXED (1) or VARIABLE (0)
+ *
+ * Returns:
+ *      SUCCESS_CODE (1) if table and index could be opened, and ERROR_CODE (-1) otherwise
+ */
 int create_btree_index_command(char *data_filename, char *index_filename, bool is_fixed);
 
 #endif //COMMANDS_H
