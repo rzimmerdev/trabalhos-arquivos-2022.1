@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "../record.h"
@@ -36,11 +35,10 @@ void write_tree_header(FILE *stream, tree_header header, bool is_repeat, bool is
         return;
     }
 
-    for (int i = 0; i < (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE) - 1; i++) {
-        char garbage = GARBAGE;
+    char garbage = GARBAGE;
 
+    for (int i = 0; i < (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE) - 1; i++)
         fwrite(&garbage, sizeof(char), 1, stream);
-    }
 }
 
 
@@ -73,13 +71,15 @@ void write_node(FILE *stream, bool is_fixed, tree_node node) {
     }
 }
 
+
+/*
+ * Reads a node from a given B-Tree file stream.
+ * Must be previously placed at seek position beforehand.
+ * Returns struct with tree_node type, either with rrn keys or byteoffset keys filled,
+ * depending on the chosen encoding.
+ */
 tree_node fread_node(FILE *stream, bool is_fixed) {
-    /*
-     * Reads a node from a given B-Tree file stream.
-     * Must be previously placed at seek position beforehand.
-     * Returns struct with tree_node type, either with rrn keys or byteoffset keys filled,
-     * depending on the chosen encoding.
-     */
+
     tree_node node_read = {};
 
     // Read common fields, those being the node type, as well as how many keys the node has.
@@ -95,13 +95,11 @@ tree_node fread_node(FILE *stream, bool is_fixed) {
         for (; i < 3; i++) {
             fread(&node_read.keys[i].id, sizeof(int), 1, stream);
             fread(&node_read.keys[i].rrn, sizeof(int), 1, stream);
-            node_read.keys[i].byteoffset = -1;
         }
     } else {
         for (; i < 3; i++) {
             fread(&node_read.keys[i].id, sizeof(int), 1, stream);
             fread(&node_read.keys[i].byteoffset, sizeof(long int), 1, stream);
-            node_read.keys[i].rrn = -1;
         }
     }
 
@@ -114,17 +112,34 @@ tree_node fread_node(FILE *stream, bool is_fixed) {
     return node_read;
 }
 
-
+/*
+ * Searches a B-Tree recursively up until a leaf node is found, in which case the function
+ * returns a NOT_FOUND warning. If a node is otherwise found, the rrn_found and pos_found values
+ * localize the found node position inside the tree, as well as its position locator inside the original data file.
+ *
+ * Example:
+ *      >>> key identifier = {.id = 7}
+ *      >>> int rrn_found = 0, pos_found = 0;
+ *      >>> tree_search_identifier(stream, identifier, &rrn_found, &pos_found, is_fixed);
+ *      rrn_found == 7, pos_found == 2;
+ *
+ * Args:
+ *      FILE *stream: Input stream containing B-Tree nodes
+ *      key identifier: Placeholder key type, with id parameter to search for
+ *      int *rrn_found: Relative record number of the found index inside the B-Tree
+ *      int *pos_found: Variable to use when recursively finding the index position within the nodes
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data
+ *
+ * Returns:
+ *      If search is successful, returns the RRN of the found record within the table file, or
+ *      NOT_FOUND if no index was found with given identifier
+ */
 long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, int *pos_found, bool is_fixed) {
-    /*
-     * Searches a B-Tree recursively up until a leaf node is found, in which case the function
-     * returns a NOT_FOUND warning. If a node is otherwise found, the rrn_found and pos_found values
-     * allow the parent function to find the node position in the tree, as well as its position
-     * locator inside the original data file.
-     */
+
     // If rrn is -1, meaning a leaf node has been reached, return a register NOT_FOUND warning.
     if (*rrn_found == -1)
-        return (long int) NOT_FOUND;
+        return NOT_FOUND;
 
     // Calculate the current node byteoffset based on the current searched node
     long int byteoffset = (*rrn_found + 1) * (is_fixed ? INDEX_SIZE_FIXED : INDEX_SIZE_VARIABLE);
@@ -135,39 +150,44 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
 
     // Search all key pairs within the node, based on the num_keys field also inside the node
     for (*pos_found = 0; *pos_found < current.num_keys; (*pos_found)++) {
-
+        int key_id = current.keys[*pos_found].id;
         // If any identifiers matches with the desired one, return a SUCCESS_CODE
-        if (identifier.id == current.keys[*pos_found].id)
+        if (identifier.id == key_id)
             return is_fixed ? (current.keys[*pos_found].rrn * FIXED_REG_SIZE + FIXED_HEADER) : current.keys[*pos_found].byteoffset;
         // Otherwise, keep iterating until not at desired sorted key position
-        if (identifier.id < current.keys[*pos_found].id)
+        if (identifier.id < key_id)
             break;
     }
 
     // Set rrn_found value to the next position to search for, and call the
     // search function recursively
     *rrn_found = current.children[*pos_found];
-    
     return tree_search_identifier(stream, identifier, rrn_found, pos_found, is_fixed); 
 }
 
 
-// Para posicionar o ponteiro do arquivo de indice no no desejado
-void seek_node(FILE *b_tree, int rrn, bool is_fixed) {
-    long int byte_offset = 0;
+/*
+ * Seeks stream to relative record offset within the given stream file.
+ *
+ * Example:
+ *      >>> seek_node(stream, 2, false);
+ *      Seeks to byteoffset 90 within the stream file. (45b node size for fixed index, and 57b for variable)
+ *
+ * Args:
+ *      FILE *stream: Input stream containing B-Tree nodes
+ *      int rrn: Relative register number, into which position to seek to
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data.
+ */
+void seek_node(FILE *stream, int rrn, bool is_fixed) {
 
-    if (is_fixed) {
-        // Calculate RRN based on the generic formulae below:
-        byte_offset = rrn * INDEX_SIZE_FIXED + INDEX_SIZE_FIXED;
-    }
+    // Calculate byteoffset value based on the predetermined size of each index node
+    long int byteoffset = (rrn + 1) * (is_fixed ? INDEX_SIZE_FIXED: INDEX_SIZE_VARIABLE);
 
-    else {
-        byte_offset = rrn * INDEX_SIZE_VARIABLE + INDEX_SIZE_VARIABLE;
-    }
-
-    // Navigate to byte_offset calculated position
-    fseek(b_tree, byte_offset, SEEK_SET); // Erro de memoria aqui
+    // Seek to byteoffset calculated position
+    fseek(stream, byteoffset, SEEK_SET);
 }
+
 
 // Funcao para inicializar um no de indice de arvore B
 tree_node create_empty_tree_node() {
@@ -381,7 +401,7 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
  * destes ocorre no retorno da recursao.
  * 
  * Parametros:
- * - FILE *b_tree -> ponteiro para arquivo da arvore
+ * - FILE *stream -> ponteiro para arquivo da arvore
  * tree_header header -> cabecalho de arvore em RAM
  * - bool is_fixed -> determina o tipo de arquivo de dados trabalhado (1 ou 2)
  * - int curr_rrn -> rrn da pagina da arvore B atualmente em uso (no inicio, a raiz). Eh a pagina
@@ -397,7 +417,7 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
  * 
  * Retorno: int -> pode ser PROMOTION, INSERT_ERROR ou NO_PROMOTION.
  */
-int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
+int insert_into_tree(FILE *stream, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
     // Eh aqui que se deve inserir a chave (no-folha - construcao bottom up)
     if (curr_rrn == NODE_NOT_FOUND) {
         *promoted = to_insert; // Para subir um nivel na recursao e inserir
@@ -408,8 +428,8 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     /* Se a pagina nao eh no-folha, chamar a funcao recursivamente ate que ela encontre
      * uma chave com o valor que queremos inserir (ja existente na tree) ou chegue ao no
      * folha para que a insercao do novo no seja feita */
-    seek_node(b_tree, curr_rrn, is_fixed);
-    tree_node curr_page = fread_node(b_tree, is_fixed);
+    seek_node(stream, curr_rrn, is_fixed);
+    tree_node curr_page = fread_node(stream, is_fixed);
 
     // Pesquisar a pagina, procurando a chave de busca
 
@@ -432,7 +452,7 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
     // Chave e RRN promovidos do nivel inferior para serem inseridos na pagina de disco atual
     key key_promoted_to_curr = {};
     int rrn_promoted_to_curr = -1;
-    int return_value = insert_into_tree(b_tree, header, is_fixed, curr_page.children[position], to_insert,
+    int return_value = insert_into_tree(stream, header, is_fixed, curr_page.children[position], to_insert,
                                         &key_promoted_to_curr, &rrn_promoted_to_curr);
 
     if (return_value == NO_PROMOTION || return_value == INSERT_ERROR) {
@@ -456,8 +476,8 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
         curr_page.children[position + 1] = rrn_promoted_to_curr;
 
         // Escrever a pagina/no
-        seek_node(b_tree, curr_rrn, is_fixed);
-        write_node(b_tree, is_fixed, curr_page);
+        seek_node(stream, curr_rrn, is_fixed);
+        write_node(stream, is_fixed, curr_page);
 
         return NO_PROMOTION;
     }
@@ -475,11 +495,11 @@ int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_
 
     // Escrever paginas/nos
     // (curr_page e new_page)
-    seek_node(b_tree, curr_rrn, is_fixed);
-    write_node(b_tree, is_fixed, curr_page);
+    seek_node(stream, curr_rrn, is_fixed);
+    write_node(stream, is_fixed, curr_page);
 
-    seek_node(b_tree, new_page_rrn, is_fixed);
-    write_node(b_tree, is_fixed, new_page);
+    seek_node(stream, new_page_rrn, is_fixed);
+    write_node(stream, is_fixed, new_page);
 
     return PROMOTION;
 }
@@ -493,7 +513,7 @@ void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
     // Read header from within origin_stream to iterate
     // over available records according to total records available
     header table_header = fread_header(origin_stream, is_fixed);
-    tree_header index_header = {.status = BAD_STATUS[0], .next_rrn = 0, .root_rrn = -1, .total_nodes = 0};
+    tree_header index_header = {.status = BAD_STATUS[0], .next_rrn = 0, .root_rrn = EMPTY, .total_nodes = 0};
     write_tree_header(index_stream, index_header, false, is_fixed);
 
     int current_rrn = 0;
