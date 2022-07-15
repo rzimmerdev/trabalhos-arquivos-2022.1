@@ -163,17 +163,18 @@ long int tree_search_identifier(FILE *stream, key identifier, int *rrn_found, in
 
 /*
  * Initializer routine to make insertions into tree - it treats the root by:
- * - Identifying or creating root page/node (if it still does not exist);
- * - Reading keys to be kept inside b-tree and calling insert_into_tree() properly, guaranteeing
- * safe parameters' conditions;
- * - Creating a new root when insert_into_tree() partitionates the current one.
- * 
+ * · Identifying or creating root page/node (if it still does not exist);
+ * · Reading keys to be kept inside b-tree and calling insert_into_tree() properly, guaranteeing safe parameters' conditions;
+ * · Creating a new root when insert_into_tree() partitionates the current one.
+ *
  * Args:
- * - FILE *index_stream -> b-tree's index file, already created and opened
- * - header *index_header -> pointer to b-tree's header (so it can be changed by insertion inside this function)
- * - bool is_fixed -> data filetype
+ *      FILE *index_stream: b-tree's index file, already created and opened
+ *      header *index_header: pointer to b-tree's header (so it can be changed by insertion inside this function)
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data.
  */
 void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fixed, key to_insert);
+
 
 /*
  * Function called inside driver_procedure() and inside create_tree_index(). It begins with
@@ -189,23 +190,33 @@ void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fix
  * occurs on recursion's returns).
  * 
  * Args:
- * - FILE *b_tree -> pointer to b-tree's/index file
- * - tree_header *header -> b-tree's header loaded on RAM
- * - bool is_fixed -> data filetype
- * - int curr_rrn -> RRN of current used b-tree's page (the start value is the root). It's the page
- * to be searched (its value changes during the execution of function)
- * - key to_insert -> key to be inserted
- * - key *promoted -> reference of promoted key, in case insertion results on partitioning and
- * key promotion
- * - int *prom_right_child -> reference to the right child of promoted key. It's a RRN, used
- * when a partitioning occurs, 'cause both promoted key and the newpage's RRN (created by partitioning)
- * should be inserted in a superior level node inside b-tree.
- * 
- * Returns: 
- *     int -> can be PROMOTION, INSERT_ERROR or NO_PROMOTION.
+ *      FILE *stream: pointer to b-tree's/index file
+ *      tree_header *header: b-tree's header loaded on RAM
+ *      bool is_fixed: data filetype
+ *      int curr_rrn: RRN of current used b-tree's page (the start value is the root).
+ *      It's the page to be searched (its value changes during the execution of function)
+ *      key to_insert: key to be inserted
+ *      key *promoted: reference of promoted key, in case insertion results on partitioning and key promotion
+ *      int *prom_right_child: reference to the right child of promoted key. It's a RRN, used
+ *      when a partitioning occurs, 'cause both promoted key and the newpage's RRN (created by partitioning)
+ *      should be inserted in a superior level node inside b-tree.
+ *
+ * Returns:
+ *     Operation result, can be PROMOTION, INSERT_ERROR or NO_PROMOTION.
  */
 int insert_into_tree(FILE *b_tree, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child);
 
+
+/*
+ * Create an index file based on an origin stream of records, with given is_fixed file encoding.
+ * Resulting index file is saved to stream of type index_stream.
+ *
+ * Args:
+ *      FILE *origin_stream: Input stream containing table records
+ *      FILE *index_stream: Final stream to write B-Tree nodes after insertion into
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data.
+ */
 void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed);
 
 #endif //TREE_INDEX_H

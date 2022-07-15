@@ -5,6 +5,13 @@
 #include "tree_index.h"
 
 
+
+key empty_key() {
+    key empty = {.id = EMPTY, .rrn = EMPTY, .byteoffset = EMPTY};
+    return empty;
+}
+
+
 /*
  * Reads the B-Tree header from the given index file stream.
  *
@@ -245,7 +252,7 @@ void seek_node(FILE *stream, int rrn, bool is_fixed) {
 tree_node create_empty_tree_node() {
     tree_node new_node = {};
 
-    key empty = {.id = EMPTY, .rrn = EMPTY, .byteoffset = EMPTY};
+    key empty = empty_key();
     for (int i = 0; i < 3; i++) {
         new_node.keys[i] = empty;
         new_node.children[i] = EMPTY;
@@ -260,15 +267,15 @@ tree_node create_empty_tree_node() {
 
 /*
  * Initializer routine to make insertions into tree - it treats the root by:
- * - Identifying or creating root page/node (if it still does not exist);
- * - Reading keys to be kept inside b-tree and calling insert_into_tree() properly, guaranteeing
- * safe parameters' conditions;
- * - Creating a new root when insert_into_tree() partitionates the current one.
+ * · Identifying or creating root page/node (if it still does not exist);
+ * · Reading keys to be kept inside b-tree and calling insert_into_tree() properly, guaranteeing safe parameters' conditions;
+ * · Creating a new root when insert_into_tree() partitionates the current one.
  * 
  * Args:
- * - FILE *index_stream -> b-tree's index file, already created and opened
- * - header *index_header -> pointer to b-tree's header (so it can be changed by insertion inside this function)
- * - bool is_fixed -> data filetype
+ *      FILE *index_stream: b-tree's index file, already created and opened
+ *      header *index_header: pointer to b-tree's header (so it can be changed by insertion inside this function)
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data.
  */
 void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fixed, key to_insert) {
     // Empty b-tree -> RRN of b-tree's root page/node is -1 
@@ -327,31 +334,23 @@ void driver_procedure(FILE *index_stream, tree_header *index_header, bool is_fix
 }
 
 /*
- * Treatment of overflow caused by the insertion of a key inside b-tree. The function:
- * - Creates a new disk page/node;
- * - Distributes keys (between already existing page and the one to be created) in the most
- *  possibly uniform way;
- * - Determinates which keys and RRNs will be promoted.
+ * Treatment of overflow caused by the insertion of a key inside b-tree.
+ * The function:
+ * · Creates a new disk page/node;
+ * · Distributes keys (between already existing page and the one to be created) in the most possibly uniform way;
+ * · Determinates which keys and RRNs will be promoted.
  * 
  * Args:
- * - key to_insert -> new key to be inserted inside tree
- * - int inserted_r_child -> reference of to be inserted key's right child
- * - tree_node *curr_page -> reference of current disk page or b-tree's node
- * - key *promoted -> reference of promoted key 
- * - tree_node *new_page -> reference of new disk page or b-tree's node.
- * 
+ *      key to_insert: new key to be inserted inside tree
+ *      int inserted_r_child: reference of to be inserted key's right child
+ *      tree_node *curr_page: reference of current disk page or b-tree's node
+ *      key *promoted: reference of promoted key
+ *      tree_node *new_page: reference of new disk page or b-tree's node.
  */
 void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promoted, tree_node *new_page) {
     // Brings all keys and current disk page's `pointers`/descendants/children to a working
     // space capable of holding an extra key and an extra child 
     key all_keys[4];
-
-    for (int i = 0; i < 4; i++) {
-        all_keys[i].id = EMPTY;
-        all_keys[i].byteoffset = EMPTY;
-        all_keys[i].rrn = EMPTY;
-    }
-
     int all_children[5];
 
     // This information does not change (insertion is only made by right side and this is
@@ -359,32 +358,18 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
     all_children[0] = curr_page->children[0];
 
     // Copy curr page's keys
-    int insert_position = -1;
-    bool found_position = false;
-    for (int i = 0; i < 3; i++) {
-        all_keys[i].id = curr_page->keys[i].id;
-        all_keys[i].byteoffset = curr_page->keys[i].byteoffset;
-        all_keys[i].rrn = curr_page->keys[i].rrn;
-        all_children[i + 1] = curr_page->children[i + 1];
+    int insert_position = 0;
+    for (; insert_position < 3; insert_position++) {
+        all_keys[insert_position] = curr_page->keys[insert_position];
+        all_children[insert_position + 1] = curr_page->children[insert_position + 1];
 
-        if (!found_position && to_insert.id < curr_page->keys[i].id) {
-            insert_position = i;
-            found_position = true;
-        }
-    }
-
-    // If hasn't found position yet, it means key to be inserted has the biggest id of all
-    // and should be inserted in the end of working space
-    if (!found_position) {
-        insert_position = 3;
+        if (to_insert.id < curr_page->keys[insert_position].id)
+            break;
     }
 
     // Shifting all info to insert new key at correct position
     for (int i = 2; i >= insert_position; i--) {
-        all_keys[i + 1].id = all_keys[i].id;
-        all_keys[i + 1].byteoffset = all_keys[i].byteoffset;
-        all_keys[i + 1].rrn = all_keys[i].rrn;
-
+        all_keys[i + 1] = all_keys[i];
         all_children[i + 2] = all_children[i + 1];
     }
 
@@ -418,36 +403,27 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
 
     // Copy keys and children `pointers` that precede promoted key
     // --> from auxiliar page to curr index page
-    curr_page->keys[0] = all_keys[0];
-    curr_page->children[1] = all_children[1];
-
-    curr_page->keys[1] = all_keys[1];
-    curr_page->children[2] = all_children[2];
-
-    curr_page->keys[2].id = EMPTY;
-    curr_page->keys[2].rrn = EMPTY;
-    curr_page->keys[2].byteoffset = EMPTY;
-
-    curr_page->children[3] = EMPTY;
     curr_page->num_keys = 2;
+    curr_page->keys[0] = all_keys[0];
+    curr_page->keys[1] = all_keys[1];
+    curr_page->keys[2] = empty_key();
+
+    curr_page->children[0] = all_children[0];
+    curr_page->children[1] = all_children[1];
+    curr_page->children[2] = all_children[2];
+    curr_page->children[3] = EMPTY;
 
     // Copy keys and children `pointers` that succede promoted key
     // --> from auxiliar page to new index page
-    new_page->children[0] = all_children[3];
-
-    new_page->keys[0] = all_keys[3];
-    new_page->children[1] = all_children[4];
-
-    new_page->keys[1].id = EMPTY;
-    new_page->keys[1].rrn = EMPTY;
-    new_page->keys[1].byteoffset = EMPTY;
-    new_page->children[2] = EMPTY;
-
-    new_page->keys[2].id = EMPTY;
-    new_page->keys[2].rrn = EMPTY;
-    new_page->keys[2].byteoffset = EMPTY;
-    new_page->children[3] = EMPTY;
     new_page->num_keys = 1;
+    new_page->keys[0] = all_keys[3];
+    new_page->keys[1] = empty_key();
+    new_page->keys[2] = empty_key();
+
+    new_page->children[0] = all_children[3];
+    new_page->children[1] = all_children[4];
+    new_page->children[2] = EMPTY;
+    new_page->children[3] = EMPTY;
 }
 
 
@@ -465,20 +441,19 @@ void split(key to_insert, int inserted_r_child, tree_node *curr_page, key *promo
  * occurs on recursion's returns).
  * 
  * Args:
- * - FILE *b_tree -> pointer to b-tree's/index file
- * - tree_header *header -> b-tree's header loaded on RAM
- * - bool is_fixed -> data filetype
- * - int curr_rrn -> RRN of current used b-tree's page (the start value is the root). It's the page
- * to be searched (its value changes during the execution of function)
- * - key to_insert -> key to be inserted
- * - key *promoted -> reference of promoted key, in case insertion results on partitioning and
- * key promotion
- * - int *prom_right_child -> reference to the right child of promoted key. It's a RRN, used
- * when a partitioning occurs, 'cause both promoted key and the newpage's RRN (created by partitioning)
- * should be inserted in a superior level node inside b-tree.
+ *      FILE *stream: pointer to b-tree's/index file
+ *      tree_header *header: b-tree's header loaded on RAM
+ *      bool is_fixed: data filetype
+ *      int curr_rrn: RRN of current used b-tree's page (the start value is the root).
+ *      It's the page to be searched (its value changes during the execution of function)
+ *      key to_insert: key to be inserted
+ *      key *promoted: reference of promoted key, in case insertion results on partitioning and key promotion
+ *      int *prom_right_child: reference to the right child of promoted key. It's a RRN, used
+ *      when a partitioning occurs, 'cause both promoted key and the newpage's RRN (created by partitioning)
+ *      should be inserted in a superior level node inside b-tree.
  * 
  * Returns: 
- *     int -> can be PROMOTION, INSERT_ERROR or NO_PROMOTION.
+ *     Operation result, can be PROMOTION, INSERT_ERROR or NO_PROMOTION.
  */
 int insert_into_tree(FILE *stream, tree_header *header, bool is_fixed, int curr_rrn, key to_insert, key *promoted, int *prom_right_child) {
     // This is where key should be inserted (when recursion comes back, it reaches leaf node -> bottom-up construction
@@ -570,11 +545,18 @@ int insert_into_tree(FILE *stream, tree_header *header, bool is_fixed, int curr_
     return PROMOTION;
 }
 
+
+/*
+ * Create an index file based on an origin stream of records, with given is_fixed file encoding.
+ * Resulting index file is saved to stream of type index_stream.
+ *
+ * Args:
+ *      FILE *origin_stream: Input stream containing table records
+ *      FILE *index_stream: Final stream to write B-Tree nodes after insertion into
+ *      bool is_fixed: Index file encoding type, can be either true for fixed sized data,
+ *      or false for variable sized data.
+ */
 void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
-    /*
-     * Create an index file based on an origin stream of records, with given is_fixed file encoding.
-     * Resulting index file is saved to stream of type index_stream.
-     */
 
     // Read header from within origin_stream to iterate
     // over available records according to total records available
@@ -600,13 +582,19 @@ void create_tree_index(FILE *origin_stream, FILE *index_stream, bool is_fixed) {
             continue;
         }
 
+        // Calls driver procedure on record transformed to index
+        // Driver procedure deals automatically with index with no elements, so no extra preprocessing
+        // has to be done
         key to_indexate = {.id = to_insert.id, .rrn = current_rrn, .byteoffset = current_byteoffset};
         driver_procedure(index_stream, &index_header, is_fixed, to_indexate);
+
+        // Increment counting variables, free record and continue iterating
         current_rrn += 1;
         current_byteoffset += to_insert.size + 5;
         free_record(to_insert);
     }
     index_header.status = OK_STATUS[0];
 
+    // Update header on the index file after finishing all insertions
     write_tree_header(index_stream, index_header, true, is_fixed);
 }
