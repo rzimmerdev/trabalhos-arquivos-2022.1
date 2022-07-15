@@ -34,7 +34,10 @@ char *fscan_until(FILE *stream, char separator);
 */
 char *scan_quote_string();
 
-
+/* FUNCAO DADA: Use essa função para comparação no run.codes. Lembre-se de ter fechado (fclose) o 
+ * arquivo anteriormente. Ela vai abrir de novo para leitura e depois fechar (você não vai perder
+ * pontos por isso se usar ela).
+ */
 void binarioNaTela(char *nomeArquivoBinario);
 
 #endif //T1_UTILS_H
