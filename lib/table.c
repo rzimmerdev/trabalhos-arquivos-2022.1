@@ -815,9 +815,10 @@ int update_fixed_filtered(FILE *stream, index_array *index, data filter, data pa
     }
 }
 
-// Insercao no arquivo de dados. O seu retorno sera utilizado pelo arq. de indice.
+// Deals only with datafile insertion. However, the function return will be used by the index file
+// (it contains either the RRN or the byteoffset of the recently inserted record, so it can be indexated).
 long int data_insert_into(FILE *stream, data new_record, bool is_fixed, header *template) {
-    // Guarda o RRN ou o byteoffset do novo registro a ser inserido
+    // Keeps RRN or byteoffset of new record to be inserted into data file
     long int new_record_pos = -1;
     
     if (is_fixed) {

@@ -219,6 +219,12 @@ int main() {
             break;
         }
         case CREATE_BTREE_INDEX: {
+            /* Specify which data file you want to indexate (create a bin. file that will keep record of
+             * all records' primary keys (IDs') and RRNs/byteoffsets (used to find them on data file)), so it'll be
+             * possible to find them faster. This index is implemented by a b-tree.
+             * index with id + RRN -> only if working with constant sized's records (FIXED)
+             * index with id + byteoffset -> only if working with variable sized's records (VARIABLE)
+            */
             char *data_filename = scan_word();
             char *index_filename = scan_word();
 
